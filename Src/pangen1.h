@@ -4043,7 +4043,7 @@ static const char *Code2d[] = {
 	"#ifdef VERI",
 	"BreakOut:",
 		"#ifndef NOSTUTTER",
-	"		if (!(trpt->tau&4))",
+	"		if (!(trpt->tau&4) && !fairness)   /* 9/2025 added !fairness */",
 	"		{	trpt->tau |= 4;   /* claim stuttering */",
 	"			trpt->tau |= 128; /* stutter mark */",
 				"#ifdef DEBUG",
