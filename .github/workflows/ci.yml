@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bison
+
+      - name: Build with ${{ matrix.compiler }}
+        run: |
+          cd Src
+          make CC=${{ matrix.compiler }}
+
+      - name: Check version
+        run: ./Src/spin -V
+
+      - name: Run tests
+        run: ./test/run_tests.sh
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: brew install bison
+
+      - name: Build
+        run: |
+          export PATH="/opt/homebrew/opt/bison/bin:/usr/local/opt/bison/bin:$PATH"
+          cd Src
+          make CFLAGS="-O2 -DNXT -DMAC -Wall -pedantic"
+
+      - name: Check version
+        run: ./Src/spin -V
+
+      - name: Run tests
+        run: ./test/run_tests.sh
+
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            bison
+            make
+
+      - name: Build
+        run: |
+          cd Src
+          make CFLAGS="-O2 -DNXT -DPC -Wall"
+
+      - name: Check version
+        run: ./Src/spin -V
+
+      - name: Run tests
+        run: ./test/run_tests.sh
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bison lcov
+
+      - name: Build with coverage
+        run: make coverage-build
+
+      - name: Run tests
+        run: ./test/run_tests.sh || true
+
+      - name: Generate coverage report
+        run: |
+          mkdir -p coverage
+          lcov --capture --directory Src --output-file coverage/coverage.info --ignore-errors source
+          lcov --remove coverage/coverage.info '/usr/*' --output-file coverage/coverage.info
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/coverage.info
+          fail_ci_if_error: false
+
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bison cppcheck
+
+      - name: Run cppcheck
+        run: |
+          cppcheck --enable=warning,style,performance,portability \
+                   --suppress=missingIncludeSystem \
+                   --error-exitcode=0 \
+                   --inline-suppr \
+                   Src/*.c
+
+      - name: Build with extra warnings
+        run: |
+          cd Src
+          make CFLAGS="-O2 -DNXT -Wall -Wextra -Wformat=2 -Wformat-security -pedantic"

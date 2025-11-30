@@ -65,6 +65,20 @@ static int	IArgno = 0, Inlining = -1;
 static int	check_name(char *);
 static int	last_token = 0;
 
+/* Safe string concatenation for IArg_cont buffers */
+static void
+safe_iarg_cat(int argno, const char *src)
+{
+	size_t cur_len = strlen(IArg_cont[argno]);
+	size_t src_len = strlen(src);
+	if (cur_len + src_len >= MAXLEN)
+	{	fprintf(stderr, "spin: inline argument %d too long (max %d)\n",
+			argno, MAXLEN - 1);
+		return;
+	}
+	strcat(IArg_cont[argno], src);
+}
+
 #define ValToken(x, y)	{ if (in_comment) goto again; \
 			yylval = nn(ZN,0,ZN,ZN); \
 			yylval->val = x; \
@@ -1337,7 +1351,14 @@ pre_proc(void)
 
 	b[i++] = '#';
 	while ((c = Getchar()) != '\n' && c != EOF)
-	{	b[i++] = (char) c;
+	{	if (i >= (int)(sizeof(b) - 1))
+		{	fprintf(stderr, "spin: preprocessor directive too long (max %zu chars)\n",
+				sizeof(b) - 1);
+			while ((c = Getchar()) != '\n' && c != EOF)
+				; /* consume rest of line */
+			break;
+		}
+		b[i++] = (char) c;
 	}
 	b[i] = '\0';
 	yylval = nn(ZN, 0, ZN, ZN);
@@ -1392,14 +1413,14 @@ get_deferred(void)
 void
 zap_deferred(void)
 {
-	(void) unlink(TMP_FILE2);
+	if (TMP_FILE2[0]) (void) unlink(TMP_FILE2);
 }
 
 int
 put_deferred(void)
 {	int c, cnt;
 	if (!defer_fd)
-	{	defer_fd = fopen(TMP_FILE2, "w+");
+	{	defer_fd = secure_tmpfile(TMP_FILE2, sizeof(TMP_FILE2));
 		if (!defer_fd)
 		{	non_fatal("cannot defer ltl expansion", (char *) 0);
 			return 0;
@@ -1706,12 +1727,19 @@ not_expanded:
 	case ';': c = SEMI; break;
 	case '.': c = follow('.', DOTDOT, '.'); break;
 	case '{':
-		assert(scope_level < sizeof(scope_seq)-1);
+		if (scope_level >= sizeof(scope_seq)-1)
+		{	fprintf(stderr, "spin: scope nesting too deep (max %zu)\n",
+				sizeof(scope_seq)-1);
+			alldone(1);
+		}
 		scope_seq[scope_level++]++;
 		set_cur_scope();
 		break;
 	case '}':
-		assert(scope_level > 0);
+		if (scope_level == 0)
+		{	fprintf(stderr, "spin: unmatched '}'\n");
+			alldone(1);
+		}
 		scope_level--;
 		set_cur_scope();
 		break;
@@ -1972,22 +2000,18 @@ yylex(void)
 			{	IArgno = 0;
 				IArg_cont[0][0] = '\0';
 			} else
-			{	assert(strlen(IArg_cont[IArgno])+strlen(yytext) < sizeof(IArg_cont));
-				strcat(IArg_cont[IArgno], yytext);
+			{	safe_iarg_cat(IArgno, yytext);
 			}
 		} else if (strcmp(yytext, ")") == 0)
 		{	if (--IArg_nst > 0)
-			{	assert(strlen(IArg_cont[IArgno])+strlen(yytext) < sizeof(IArg_cont));
-				strcat(IArg_cont[IArgno], yytext);
+			{	safe_iarg_cat(IArgno, yytext);
 			}
 		} else if (c == CONST && yytext[0] == '\'')
 		{	sprintf(yytext, "'%c'", yylval->val);
-			assert(strlen(IArg_cont[IArgno])+strlen(yytext) < sizeof(IArg_cont));
-			strcat(IArg_cont[IArgno], yytext);
+			safe_iarg_cat(IArgno, yytext);
 		} else if (c == CONST)
 		{	sprintf(yytext, "%d", yylval->val);
-			assert(strlen(IArg_cont[IArgno])+strlen(yytext) < sizeof(IArg_cont));
-			strcat(IArg_cont[IArgno], yytext);
+			safe_iarg_cat(IArgno, yytext);
 		} else
 		{
 			switch (c) {
@@ -2012,8 +2036,7 @@ yylex(void)
 			case AND: 	strcpy(yytext, "&&"); break;
 			case OR:	strcpy(yytext, "||"); break;
 			}
-			assert(strlen(IArg_cont[IArgno])+strlen(yytext) < sizeof(IArg_cont));
-			strcat(IArg_cont[IArgno], yytext);
+			safe_iarg_cat(IArgno, yytext);
 		}
 	}
 	return c;

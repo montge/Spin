@@ -38,6 +38,38 @@ static void	add_runtime(char *);
 
 Symbol	*Fname, *oFname;
 
+/* Secure temporary file paths */
+char TMP_FILE1[256] = "";
+char TMP_FILE2[256] = "";
+
+/* Create a secure temporary file using mkstemp */
+FILE *
+secure_tmpfile(char *out_path, size_t path_size)
+{	int fd;
+	FILE *fp;
+	const char *tmpdir;
+
+	tmpdir = getenv("TMPDIR");
+	if (!tmpdir) tmpdir = getenv("TMP");
+	if (!tmpdir) tmpdir = getenv("TEMP");
+	if (!tmpdir) tmpdir = "/tmp";
+
+	snprintf(out_path, path_size, "%s/spin.XXXXXX", tmpdir);
+	fd = mkstemp(out_path);
+	if (fd == -1)
+	{	fprintf(stderr, "spin: cannot create temp file: %s\n", out_path);
+		return NULL;
+	}
+	fp = fdopen(fd, "w+");
+	if (!fp)
+	{	close(fd);
+		unlink(out_path);
+		fprintf(stderr, "spin: cannot open temp file: %s\n", out_path);
+		return NULL;
+	}
+	return fp;
+}
+
 int	Etimeouts;	/* nr timeouts in program */
 int	Ntimeouts;	/* nr timeouts in never claim */
 int	analyze, columns, dumptab, has_remote, has_remvar;
@@ -82,7 +114,8 @@ static char	*pan_runtime = "";
 static char	*pan_comptime = "";
 static char	*formula = NULL;
 static FILE	*fd_ltl = (FILE *) 0;
-static char	*PreArg[64];
+#define MAX_PREARG 64
+static char	*PreArg[MAX_PREARG];
 static int	PreCnt = 0;
 static char	out1[64];
 
@@ -240,6 +273,44 @@ string_trim(char *t)
 	}
 }
 
+/* Shell-escape a string for safe use in system() calls.
+ * Wraps the string in single quotes and escapes any embedded single quotes.
+ * Returns a newly allocated string that must be freed by caller.
+ */
+char *
+shell_escape(const char *s)
+{	size_t len = strlen(s);
+	size_t i, j;
+	char *escaped;
+	size_t quote_count = 0;
+
+	/* Count single quotes to determine buffer size */
+	for (i = 0; i < len; i++)
+	{	if (s[i] == '\'')
+		{	quote_count++;
+	}	}
+
+	/* Allocate: original + 2 outer quotes + 3 extra chars per inner quote + null */
+	escaped = (char *) emalloc(len + 2 + (quote_count * 3) + 1);
+
+	j = 0;
+	escaped[j++] = '\'';
+	for (i = 0; i < len; i++)
+	{	if (s[i] == '\'')
+		{	/* End quote, escaped quote, start quote: '\'' */
+			escaped[j++] = '\'';
+			escaped[j++] = '\\';
+			escaped[j++] = '\'';
+			escaped[j++] = '\'';
+		} else
+		{	escaped[j++] = s[i];
+	}	}
+	escaped[j++] = '\'';
+	escaped[j] = '\0';
+
+	return escaped;
+}
+
 int
 e_system(int v, const char *s)
 {	static int count = 1;
@@ -271,8 +342,8 @@ alldone(int estatus)
 	{	(void) unlink((const char *) out1);
 	}
 
-	(void) unlink(TMP_FILE1);
-	(void) unlink(TMP_FILE2);
+	if (TMP_FILE1[0]) (void) unlink(TMP_FILE1);
+	if (TMP_FILE2[0]) (void) unlink(TMP_FILE2);
 
 	if (!buzzed && seedy && !analyze && !export_ast
 	&& !s_trail && !preprocessonly && depth > 0)
@@ -333,10 +404,11 @@ alldone(int estatus)
 		if (verbose&64)      strcat(pan_runtime, "-w ");
 		if (m_loss)          strcat(pan_runtime, "-m ");
 
+		char *escaped_fname = shell_escape(Fname->name);
 		char *tmp = (char *) emalloc(strlen("spin -t") +
-				strlen(pan_runtime) + strlen(Fname->name) + 8);
+				strlen(pan_runtime) + strlen(escaped_fname) + 8);
 
-		sprintf(tmp, "spin -t %s %s", pan_runtime, Fname->name);
+		sprintf(tmp, "spin -t %s %s", pan_runtime, escaped_fname);
 		estatus = e_system(1, tmp);	/* replay */
 		exit(estatus);	/* replay without c_code */
 	}
@@ -593,17 +665,23 @@ preprocess(char *a, char *b, int a_tmp)
 	}	}
 #endif
 
-	assert(strlen(PreProc) < sizeof(precmd));
+	if (strlen(PreProc) >= sizeof(precmd))
+	{	fprintf(stdout, "spin: preprocessor command too long\n");
+		alldone(1);
+	}
 	strcpy(precmd, PreProc);
 	for (i = 1; i <= PreCnt; i++)
 	{	strcat(precmd, " ");
 		strcat(precmd, PreArg[i]);
 	}
-	if (strlen(precmd) > sizeof(precmd))
+	if (strlen(precmd) >= sizeof(precmd))
 	{	fprintf(stdout, "spin: too many -D args, aborting\n");
 		alldone(1);
 	}
-	sprintf(cmd, "%s \"%s\" > \"%s\"", precmd, a, b);
+	{	char *escaped_a = shell_escape(a);
+		char *escaped_b = shell_escape(b);
+		snprintf(cmd, sizeof(cmd), "%s %s > %s", precmd, escaped_a, escaped_b);
+	}
 	if (e_system(2, (const char *)cmd))	/* preprocessing step */
 	{	(void) unlink((const char *) b);
 		if (a_tmp) (void) unlink((const char *) a);
@@ -905,10 +983,18 @@ main(int argc, char *argv[])
 		case 'b': no_print = 1; break;
 		case 'C': Caccess = 1; break;
 		case 'c': columns = 1; break;
-		case 'D': PreArg[++PreCnt] = (char *) &argv[1][0];
+		case 'D': if (PreCnt >= MAX_PREARG - 1)
+			  {	fprintf(stderr, "spin: too many -D arguments (max %d)\n", MAX_PREARG - 1);
+				alldone(1);
+			  }
+			  PreArg[++PreCnt] = (char *) &argv[1][0];
 			  break;	/* define */
 		case 'd': dumptab =  1; break;
-		case 'E': PreArg[++PreCnt] = (char *) &argv[1][2];
+		case 'E': if (PreCnt >= MAX_PREARG - 1)
+			  {	fprintf(stderr, "spin: too many -E arguments (max %d)\n", MAX_PREARG - 1);
+				alldone(1);
+			  }
+			  PreArg[++PreCnt] = (char *) &argv[1][2];
 			  break;
 		case 'e': product++; break; /* see also 'L' */
 		case 'F': ltl_file = (char **) (argv+2);
@@ -933,7 +1019,10 @@ main(int argc, char *argv[])
 		case 'n': T = atoi(&argv[1][2]); tl_terse = 1; break;
 		case 'O': old_scope_rules = 1; break;
 		case 'o': usedopts += optimizations(argv[1][2]); break;
-		case 'P': assert(strlen((const char *) &argv[1][2]) < sizeof(PreProc));
+		case 'P': if (strlen((const char *) &argv[1][2]) >= sizeof(PreProc))
+			  {	fprintf(stderr, "spin: -P argument too long (max %zu)\n", sizeof(PreProc) - 1);
+				alldone(1);
+			  }
 			  strcpy(PreProc, (const char *) &argv[1][2]);
 			  break;
 		case 'p': if (argv[1][2] == 'p')
@@ -1015,7 +1104,11 @@ samecase:			if (buzzed != 0)
 			  {	ntrail = atoi(&argv[1][2]);
 			  }
 			  break;
-		case 'U': PreArg[++PreCnt] = (char *) &argv[1][0];
+		case 'U': if (PreCnt >= MAX_PREARG - 1)
+			  {	fprintf(stderr, "spin: too many -U arguments (max %d)\n", MAX_PREARG - 1);
+				alldone(1);
+			  }
+			  PreArg[++PreCnt] = (char *) &argv[1][0];
 			  break;	/* undefine */
 		case 'u': cutoff = atoi(&argv[1][2]); break;
 		case 'v': verbose += 32; break;

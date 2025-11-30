@@ -10,6 +10,8 @@
 #include "spin.h"
 #include "version.h"
 
+extern char *shell_escape(const char *);
+
 #define MW	500	/* page width */
 #define RH	100	/* right margin */
 #define WW	 80	/* distance between process lines */
@@ -286,7 +288,12 @@ putpostlude(void)
 	fclose(pfd);
 
 	fprintf(stderr, "seed used: -n%d\n", WhatSeed());
-	sprintf(cmd, "wish -f %s.tcl &", oFname?oFname->name:"msc");
+	{	char tclfile[512];
+		char *escaped_tcl;
+		snprintf(tclfile, sizeof(tclfile), "%s.tcl", oFname?oFname->name:"msc");
+		escaped_tcl = shell_escape(tclfile);
+		snprintf(cmd, sizeof(cmd), "wish -f %s &", escaped_tcl);
+	}
 	fprintf(stderr, "%s\n", cmd);
 	(void) unlink("pan.pre");
 	exit (system(cmd));

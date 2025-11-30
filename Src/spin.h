@@ -447,7 +447,11 @@ void	yyerror(char *, ...);
 
 extern	int unlink(const char *);
 
-#define TMP_FILE1 "._s_p_i_n_"
-#define TMP_FILE2 "._n_i_p_s_"
+/* Temporary file paths - set at runtime by secure_tmpfile() */
+extern char TMP_FILE1[256];
+extern char TMP_FILE2[256];
+
+/* Create a secure temporary file, returns FILE* and sets path in out_path */
+FILE *secure_tmpfile(char *out_path, size_t path_size);
 
 #endif

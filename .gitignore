@@ -1,4 +1,43 @@
+# Pre-compiled binaries (use GitHub Releases instead)
+Bin/
+
+# Build artifacts
 *.o
+*.gcda
+*.gcno
 Src/spin
+Src/spin.exe
 Src/y.tab.h
+Src/y.tab.c
 Src/y.output
+Src/y.debug
+
+# Generated verifier files
+pan
+pan.exe
+pan.[chmotb]
+*.trail
+
+# Test artifacts
+test/work/
+
+# Coverage reports
+coverage/
+
+# Editor/IDE
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+._*
+*.tmp
+
+# Local/AI working directory
+.local/

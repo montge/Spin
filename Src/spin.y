@@ -1082,7 +1082,7 @@ ltl_to_string(Lextok *n)
 {	Lextok *m = nn(ZN, 0, ZN, ZN);
 	ssize_t retval;
 	char *ltl_formula = NULL;
-	FILE *tf = fopen(TMP_FILE1, "w+"); /* tmpfile() fails on Windows 7 */
+	FILE *tf = secure_tmpfile(TMP_FILE1, sizeof(TMP_FILE1));
 
 	/* convert the parsed ltl to a string
 	   by writing into a file, using existing functions,
@@ -1104,7 +1104,7 @@ ltl_to_string(Lextok *n)
 	retval = getline(&ltl_formula, &linebuffsize, tf);
 	fclose(tf);
 
-	(void) unlink(TMP_FILE1);
+	if (TMP_FILE1[0]) (void) unlink(TMP_FILE1);
 
 	if (!retval)
 	{	printf("%ld\n", (long int) retval);
