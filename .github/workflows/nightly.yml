@@ -1,0 +1,169 @@
+name: Nightly Build
+
+on:
+  schedule:
+    # Run at 00:00 UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  build-nightly:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: spin
+            asset_name: spin-linux-x64
+          - os: macos-latest
+            artifact_name: spin
+            asset_name: spin-macos-x64
+          - os: windows-latest
+            artifact_name: spin.exe
+            asset_name: spin-windows-x64.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bison
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install bison
+
+      - name: Setup MSYS2 (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            bison
+            make
+
+      - name: Build (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd Src
+          make CFLAGS="-O2 -DNXT -Wall -pedantic"
+          strip spin
+
+      - name: Build (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          export PATH="/opt/homebrew/opt/bison/bin:/usr/local/opt/bison/bin:$PATH"
+          cd Src
+          make CFLAGS="-O2 -DNXT -DMAC -Wall -pedantic"
+          strip Src/spin || true
+
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          cd Src
+          make CFLAGS="-O2 -DNXT -DPC -Wall"
+          strip spin.exe || true
+
+      - name: Run tests (Unix)
+        if: matrix.os != 'windows-latest'
+        run: ./test/run_tests.sh
+
+      - name: Run tests (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: ./test/run_tests.sh
+
+      - name: Prepare artifact (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cp Src/${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+          gzip -k ${{ matrix.asset_name }}
+
+      - name: Prepare artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          cp Src/${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+          gzip -k ${{ matrix.asset_name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.asset_name }}.gz
+
+  create-nightly-release:
+    needs: build-nightly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
+      - name: Get short SHA
+        id: sha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          find . -name "*.gz" -exec mv {} . \;
+          sha256sum *.gz > SHA256SUMS.txt
+
+      - name: Delete old nightly releases
+        run: |
+          # Keep only the last 7 nightly releases
+          gh release list --limit 100 | grep "nightly-" | tail -n +8 | awk '{print $1}' | while read tag; do
+            echo "Deleting old release: $tag"
+            gh release delete "$tag" --yes --cleanup-tag || true
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Nightly Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: nightly-${{ steps.date.outputs.date }}
+          name: Nightly Build ${{ steps.date.outputs.date }}
+          prerelease: true
+          body: |
+            ## Nightly Build - ${{ steps.date.outputs.date }}
+
+            **Commit:** ${{ github.sha }}
+            **Short SHA:** ${{ steps.sha.outputs.sha }}
+
+            ⚠️ **This is an automated nightly build and may be unstable.**
+
+            For stable releases, see the [Releases](https://github.com/${{ github.repository }}/releases) page and look for non-prerelease versions.
+
+            ### Downloads
+            - `spin-linux-x64.gz` - Linux x86_64 binary
+            - `spin-macos-x64.gz` - macOS x86_64 binary
+            - `spin-windows-x64.exe.gz` - Windows x86_64 binary
+
+            ### Verification
+            ```bash
+            sha256sum -c SHA256SUMS.txt
+            ```
+
+            ### Changes since last nightly
+            See [commit history](https://github.com/${{ github.repository }}/commits/master)
+          files: |
+            artifacts/*.gz
+            artifacts/SHA256SUMS.txt
