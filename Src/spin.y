@@ -225,7 +225,7 @@ claim	: CLAIM	optname	{ if ($2 != ZN)
 
 optname : /* empty */	{ char tb[32];
 			  memset(tb, 0, 32);
-			  sprintf(tb, "never_%d", nclaims);
+			  snprintf(tb, sizeof(tb), "never_%d", nclaims);
 			  $$ = nn(ZN, NAME, ZN, ZN);
 			  $$->sym = lookup(tb);
 			}
@@ -234,7 +234,7 @@ optname : /* empty */	{ char tb[32];
 
 optname2 : /* empty */ { char tb[32]; static int nltl = 0;
 			  memset(tb, 0, 32);
-			  sprintf(tb, "ltl_%d", nltl++);
+			  snprintf(tb, sizeof(tb), "ltl_%d", nltl++);
 			  $$ = nn(ZN, NAME, ZN, ZN);
 			  $$->sym = lookup(tb);
 			}
