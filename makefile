@@ -8,8 +8,8 @@ clean:
 	cd Src; make clean
 	rm -rf test/work coverage cppcheck-report.xml
 
-# Run test suite (unit + integration + e2e + functional)
-test: all test-unit test-integration test-e2e test-functional
+# Run test suite (all test types)
+test: all test-unit test-integration test-e2e test-negative test-functional
 
 # Functional tests (basic spin functionality)
 test-functional: all
@@ -30,6 +30,11 @@ test-integration: all
 test-e2e: all
 	@echo "=== Running End-to-End Tests ==="
 	./test/e2e/run_e2e_tests.sh
+
+# Negative tests (verify Spin finds expected bugs)
+test-negative: all
+	@echo "=== Running Negative Tests ==="
+	./test/e2e/negative_tests.sh
 
 # Quick test (just functional)
 test-quick: all
@@ -80,4 +85,4 @@ scan-build:
 	cd Src; make clean
 	cd Src; scan-build make
 
-.PHONY: all install clean test test-unit test-integration test-e2e test-functional test-quick coverage coverage-build coverage-summary cppcheck cppcheck-xml strict scan-build
+.PHONY: all install clean test test-unit test-integration test-e2e test-negative test-functional test-quick coverage coverage-build coverage-summary cppcheck cppcheck-xml strict scan-build
