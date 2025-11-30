@@ -7,6 +7,7 @@
  */
 
 #include <stdlib.h>
+#include <stdarg.h>
 #include <assert.h>
 #include "spin.h"
 #include "version.h"
@@ -311,6 +312,28 @@ shell_escape(const char *s)
 	return escaped;
 }
 
+/* Safely append to a buffer with bounds checking.
+ * Returns number of characters added, or 0 if buffer full.
+ */
+static size_t
+safe_append(char *buf, size_t bufsize, const char *fmt, ...)
+{	va_list ap;
+	size_t cur_len = strlen(buf);
+	size_t remaining = bufsize - cur_len;
+	int ret;
+
+	if (remaining <= 1)
+		return 0;
+
+	va_start(ap, fmt);
+	ret = vsnprintf(buf + cur_len, remaining, fmt, ap);
+	va_end(ap);
+
+	if (ret < 0)
+		return 0;
+	return (size_t)ret < remaining ? (size_t)ret : remaining - 1;
+}
+
 int
 e_system(int v, const char *s)
 {	static int count = 1;
@@ -362,53 +385,54 @@ alldone(int estatus)
 	{	extern QH *qh_lst;
 		QH *j;
 		int i;
+		#define PAN_RUNTIME_SIZE 2048
 
-		pan_runtime = (char *) emalloc(2048);	/* more than enough */
-		sprintf(pan_runtime, "-n%d ", SeedUsed);
+		pan_runtime = (char *) emalloc(PAN_RUNTIME_SIZE);
+		snprintf(pan_runtime, PAN_RUNTIME_SIZE, "-n%d ", SeedUsed);
 		if (jumpsteps)
-		{	sprintf(&pan_runtime[strlen(pan_runtime)], "-j%d ", jumpsteps);
+		{	safe_append(pan_runtime, PAN_RUNTIME_SIZE, "-j%d ", jumpsteps);
 		}
 		if (trailfilename)
-		{	sprintf(&pan_runtime[strlen(pan_runtime)], "-k%s ", *trailfilename);
+		{	safe_append(pan_runtime, PAN_RUNTIME_SIZE, "-k%s ", *trailfilename);
 		}
 		if (cutoff)
-		{	sprintf(&pan_runtime[strlen(pan_runtime)], "-u%d ", cutoff);
+		{	safe_append(pan_runtime, PAN_RUNTIME_SIZE, "-u%d ", cutoff);
 		}
 		for (i = 1; i <= PreCnt; i++)
-		{	strcat(pan_runtime, PreArg[i]);
-			strcat(pan_runtime, " ");
+		{	safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s ", PreArg[i]);
 		}
 		for (j = qh_lst; j; j = j->nxt)
-		{	sprintf(&pan_runtime[strlen(pan_runtime)], "-q%d ", j->n);
+		{	safe_append(pan_runtime, PAN_RUNTIME_SIZE, "-q%d ", j->n);
 		}
 		if (strcmp(PreProc, CPP) != 0)
-		{	sprintf(&pan_runtime[strlen(pan_runtime)], "\"-P%s\" ", PreProc);
+		{	safe_append(pan_runtime, PAN_RUNTIME_SIZE, "\"-P%s\" ", PreProc);
 		}
 		/* -oN options 1..5 are ignored in simulations */
-		if (old_priority_rules) strcat(pan_runtime, "-o6 ");
-		if (!implied_semis)  strcat(pan_runtime, "-o7 ");
-		if (no_print)        strcat(pan_runtime, "-b ");
-		if (no_wrapup)       strcat(pan_runtime, "-B ");
-		if (columns == 1)    strcat(pan_runtime, "-c ");
-		if (columns == 2)    strcat(pan_runtime, "-M ");
-		if (seedy == 1)      strcat(pan_runtime, "-h ");
-		if (like_java == 1)  strcat(pan_runtime, "-J ");
-		if (old_scope_rules) strcat(pan_runtime, "-O ");
-		if (notabs)          strcat(pan_runtime, "-T ");
-		if (verbose&1)       strcat(pan_runtime, "-g ");
-		if (verbose&2)       strcat(pan_runtime, "-l ");
-		if (verbose&4)       strcat(pan_runtime, "-p ");
-		if (verbose&8)       strcat(pan_runtime, "-r ");
-		if (verbose&16)      strcat(pan_runtime, "-s ");
-		if (verbose&32)      strcat(pan_runtime, "-v ");
-		if (verbose&64)      strcat(pan_runtime, "-w ");
-		if (m_loss)          strcat(pan_runtime, "-m ");
+		if (old_priority_rules) safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-o6 ");
+		if (!implied_semis)  safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-o7 ");
+		if (no_print)        safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-b ");
+		if (no_wrapup)       safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-B ");
+		if (columns == 1)    safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-c ");
+		if (columns == 2)    safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-M ");
+		if (seedy == 1)      safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-h ");
+		if (like_java == 1)  safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-J ");
+		if (old_scope_rules) safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-O ");
+		if (notabs)          safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-T ");
+		if (verbose&1)       safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-g ");
+		if (verbose&2)       safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-l ");
+		if (verbose&4)       safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-p ");
+		if (verbose&8)       safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-r ");
+		if (verbose&16)      safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-s ");
+		if (verbose&32)      safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-v ");
+		if (verbose&64)      safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-w ");
+		if (m_loss)          safe_append(pan_runtime, PAN_RUNTIME_SIZE, "%s", "-m ");
 
 		char *escaped_fname = shell_escape(Fname->name);
 		char *tmp = (char *) emalloc(strlen("spin -t") +
 				strlen(pan_runtime) + strlen(escaped_fname) + 8);
 
-		sprintf(tmp, "spin -t %s %s", pan_runtime, escaped_fname);
+		snprintf(tmp, strlen("spin -t") + strlen(pan_runtime) + strlen(escaped_fname) + 8,
+			"spin -t %s %s", pan_runtime, escaped_fname);
 		estatus = e_system(1, tmp);	/* replay */
 		exit(estatus);	/* replay without c_code */
 	}
