@@ -4,18 +4,19 @@
 coverage:
   precision: 2
   round: down
-  range: "30...80"
+  range: "40...90"
 
   status:
     project:
       default:
-        # Don't fail CI on coverage changes for now
-        # We're starting from ~40% and working up
-        informational: true
+        # Current baseline: ~46% lines, ~60% functions
+        # Target: 80% per module, 90% overall (long-term goal)
+        target: 50%
+        threshold: 2%
     patch:
       default:
-        # Require new code to have at least some coverage
-        informational: true
+        # New code should have good coverage
+        target: 70%
 
 comment:
   layout: "reach,diff,flags,files"
@@ -26,3 +27,5 @@ ignore:
   - "test/**/*"
   - "Examples/**/*"
   - "Doc/**/*"
+  # Generated files
+  - "Src/y.tab.c"
