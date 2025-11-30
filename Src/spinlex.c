@@ -76,7 +76,7 @@ safe_iarg_cat(int argno, const char *src)
 			argno, MAXLEN - 1);
 		return;
 	}
-	strcat(IArg_cont[argno], src);
+	strncat(IArg_cont[argno], src, MAXLEN - cur_len - 1);
 }
 
 #define ValToken(x, y)	{ if (in_comment) goto again; \
@@ -103,11 +103,12 @@ static char pushedback[4096];
 static void
 push_back(char *s)
 {
-	if (PushedBack + strlen(s) > 4094)
+	size_t slen = strlen(s);
+	if (PushedBack + slen > 4094)
 	{	fatal("select statement too large", 0);
 	}
-	strcat(pushedback, s);
-	PushedBack += strlen(s);
+	strncat(pushedback, s, sizeof(pushedback) - PushedBack - 1);
+	PushedBack += slen;
 }
 
 static int
@@ -219,8 +220,9 @@ static void
 def_inline(Symbol *s, int ln, char *ptr, char *prc, Lextok *nms)
 {	IType *tmp;
 	int  cnt = 0;
-	char *nw = (char *) emalloc(strlen(ptr)+1);
-	strcpy(nw, ptr);
+	size_t nw_len = strlen(ptr)+1;
+	char *nw = (char *) emalloc(nw_len);
+	snprintf(nw, nw_len, "%s", ptr);
 
 	for (tmp = seqnames; tmp; cnt++, tmp = tmp->nxt)
 		if (!strcmp(s->name, tmp->nm->name))
@@ -237,8 +239,9 @@ def_inline(Symbol *s, int ln, char *ptr, char *prc, Lextok *nms)
 	tmp->cn = (Lextok *) nw;
 	tmp->params = nms;
 	if (strlen(prc) > 0)
-	{	tmp->prec = (char *) emalloc(strlen(prc)+1);
-		strcpy(tmp->prec, prc);
+	{	size_t prc_len = strlen(prc)+1;
+		tmp->prec = (char *) emalloc(prc_len);
+		snprintf(tmp->prec, prc_len, "%s", prc);
 	}
 	tmp->dln = ln;
 	tmp->dfn = Fname;
@@ -561,8 +564,10 @@ c_add_locinit(FILE *fd, int tpnr, char *pnm)
 			while (*q == ' ' || *q == '\t')
 				q++;			/* process name */
 
-			s = (char *) emalloc(strlen(q)+1);
-			strcpy(s, q);
+			{	size_t s_len = strlen(q)+1;
+				s = (char *) emalloc(s_len);
+				snprintf(s, s_len, "%s", q);
+			}
 
 			q = &s[strlen(s)-1];
 			while (*q == ' ' || *q == '\t')
@@ -1104,8 +1109,9 @@ pickup_inline(Symbol *t, Lextok *apars, Lextok *rval)
 
 	tmp->anms  = (char **) emalloc(j * sizeof(char *));
 	for (p = apars, j = 0; p; p = p->rgt, j++)
-	{	tmp->anms[j] = (char *) emalloc(strlen(IArg_cont[j])+1);
-		strcpy(tmp->anms[j], IArg_cont[j]);
+	{	size_t anm_len = strlen(IArg_cont[j])+1;
+		tmp->anms[j] = (char *) emalloc(anm_len);
+		snprintf(tmp->anms[j], anm_len, "%s", IArg_cont[j]);
 	}
 
 	lineno = tmp->dln;	/* linenr of def */
@@ -1573,14 +1579,14 @@ again:
 		getword(c, notquote);
 		if (Getchar() != '\"')
 			fatal("string not terminated", yytext);
-		strcat(yytext, "\"");
+		strncat(yytext, "\"", sizeof(yytext) - strlen(yytext) - 1);
 		SymToken(lookup(yytext), STRING)
 
 	case '$':
 		getword('\"', notdollar);
 		if (Getchar() != '$')
 			fatal("ltl definition not terminated", yytext);
-		strcat(yytext, "\""); 
+		strncat(yytext, "\"", sizeof(yytext) - strlen(yytext) - 1);
 		SymToken(lookup(yytext), STRING)
 
 	case '\'':	/* new 3.0.9 */
@@ -1867,10 +1873,11 @@ check_name(char *s)
 	}	}
 
 	if ((yylval->val = ismtype(s)) != 0)
-	{	yylval->ismtyp = 1;
+	{	size_t slen = strlen(s)+1;
+		yylval->ismtyp = 1;
 		yylval->sym = (Symbol *) emalloc(sizeof(Symbol));
-		yylval->sym->name = (char *) emalloc(strlen(s)+1);
-		strcpy(yylval->sym->name, s);
+		yylval->sym->name = (char *) emalloc(slen);
+		snprintf(yylval->sym->name, slen, "%s", s);
 		return CONST;
 	}
 
@@ -2011,34 +2018,34 @@ yylex(void)
 			{	safe_iarg_cat(IArgno, yytext);
 			}
 		} else if (c == CONST && yytext[0] == '\'')
-		{	sprintf(yytext, "'%c'", yylval->val);
+		{	snprintf(yytext, sizeof(yytext), "'%c'", yylval->val);
 			safe_iarg_cat(IArgno, yytext);
 		} else if (c == CONST)
-		{	sprintf(yytext, "%d", yylval->val);
+		{	snprintf(yytext, sizeof(yytext), "%d", yylval->val);
 			safe_iarg_cat(IArgno, yytext);
 		} else
 		{
 			switch (c) {
-			case ARROW:	strcpy(yytext, "->"); break; /* NEW */
-			case SEP:	strcpy(yytext, "::"); break;
-			case SEMI:	strcpy(yytext, ";"); break;
-			case DECR:	strcpy(yytext, "--"); break;
-			case INCR: 	strcpy(yytext, "++"); break;
-			case LSHIFT:	strcpy(yytext, "<<"); break;
-			case RSHIFT:	strcpy(yytext, ">>"); break;
-			case LE:	strcpy(yytext, "<="); break;
-			case LT:	strcpy(yytext, "<"); break;
-			case GE:	strcpy(yytext, ">="); break;
-			case GT:	strcpy(yytext, ">"); break;
-			case EQ:	strcpy(yytext, "=="); break;
-			case ASGN:	strcpy(yytext, "="); break;
-			case NE:	strcpy(yytext, "!="); break;
-			case R_RCV:	strcpy(yytext, "??"); break;
-			case RCV:	strcpy(yytext, "?"); break;
-			case O_SND:	strcpy(yytext, "!!"); break;
-			case SND:	strcpy(yytext, "!"); break;
-			case AND: 	strcpy(yytext, "&&"); break;
-			case OR:	strcpy(yytext, "||"); break;
+			case ARROW:	snprintf(yytext, sizeof(yytext), "->"); break; /* NEW */
+			case SEP:	snprintf(yytext, sizeof(yytext), "::"); break;
+			case SEMI:	snprintf(yytext, sizeof(yytext), ";"); break;
+			case DECR:	snprintf(yytext, sizeof(yytext), "--"); break;
+			case INCR: 	snprintf(yytext, sizeof(yytext), "++"); break;
+			case LSHIFT:	snprintf(yytext, sizeof(yytext), "<<"); break;
+			case RSHIFT:	snprintf(yytext, sizeof(yytext), ">>"); break;
+			case LE:	snprintf(yytext, sizeof(yytext), "<="); break;
+			case LT:	snprintf(yytext, sizeof(yytext), "<"); break;
+			case GE:	snprintf(yytext, sizeof(yytext), ">="); break;
+			case GT:	snprintf(yytext, sizeof(yytext), ">"); break;
+			case EQ:	snprintf(yytext, sizeof(yytext), "=="); break;
+			case ASGN:	snprintf(yytext, sizeof(yytext), "="); break;
+			case NE:	snprintf(yytext, sizeof(yytext), "!="); break;
+			case R_RCV:	snprintf(yytext, sizeof(yytext), "??"); break;
+			case RCV:	snprintf(yytext, sizeof(yytext), "?"); break;
+			case O_SND:	snprintf(yytext, sizeof(yytext), "!!"); break;
+			case SND:	snprintf(yytext, sizeof(yytext), "!"); break;
+			case AND: 	snprintf(yytext, sizeof(yytext), "&&"); break;
+			case OR:	snprintf(yytext, sizeof(yytext), "||"); break;
 			}
 			safe_iarg_cat(IArgno, yytext);
 		}

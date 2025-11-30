@@ -267,7 +267,7 @@ typ_ck(int ft, int at, char *s)
 	{	char buf[256], tag1[64], tag2[64];
 		(void) sputtype(tag1, ft);
 		(void) sputtype(tag2, at);
-		sprintf(buf, "type-clash in %s, (%s<-> %s)", s, tag1, tag2);
+		snprintf(buf, sizeof(buf), "type-clash in %s, (%s<-> %s)", s, tag1, tag2);
 		non_fatal("%s", buf);
 	}
 }
@@ -546,27 +546,27 @@ channm(Lextok *n)
 {	char lbuf[512];
 
 	if (n->sym->type == CHAN)
-		strcat(GBuf, n->sym->name);
+		strncat(GBuf, n->sym->name, sizeof(GBuf) - strlen(GBuf) - 1);
 	else if (n->sym->type == NAME)
-		strcat(GBuf, lookup(n->sym->name)->name);
+		strncat(GBuf, lookup(n->sym->name)->name, sizeof(GBuf) - strlen(GBuf) - 1);
 	else if (n->sym->type == STRUCT)
 	{	Symbol *r = n->sym;
 		if (r->context)
 		{	r = findloc(r);
 			if (!r)
-			{	strcat(GBuf, "*?*");
+			{	strncat(GBuf, "*?*", sizeof(GBuf) - strlen(GBuf) - 1);
 				return;
 		}	}
 		ini_struct(r);
 		printf("%s", r->name);
-		strcpy(lbuf, "");
+		lbuf[0] = '\0';
 		struct_name(n->lft, r, 1, lbuf);
-		strcat(GBuf, lbuf);
+		strncat(GBuf, lbuf, sizeof(GBuf) - strlen(GBuf) - 1);
 	} else
-		strcat(GBuf, "-");
+		strncat(GBuf, "-", sizeof(GBuf) - strlen(GBuf) - 1);
 	if (n->lft->lft)
-	{	sprintf(lbuf, "[%d]", eval(n->lft->lft));
-		strcat(GBuf, lbuf);
+	{	snprintf(lbuf, sizeof(lbuf), "[%d]", eval(n->lft->lft));
+		strncat(GBuf, lbuf, sizeof(GBuf) - strlen(GBuf) - 1);
 	}
 }
 
@@ -577,10 +577,10 @@ difcolumns(Lextok *n, char *tr, int v, int j, Queue *q)
 	if (j == 0)
 	{	GBuf[0] = '\0';
 		channm(n);
-		strcat(GBuf, (strncmp(tr, "Sen", 3))?"?":"!");
+		strncat(GBuf, (strncmp(tr, "Sen", 3))?"?":"!", sizeof(GBuf) - strlen(GBuf) - 1);
 	} else
-		strcat(GBuf, ",");
-	if (tr[0] == '[') strcat(GBuf, "[");
+		strncat(GBuf, ",", sizeof(GBuf) - strlen(GBuf) - 1);
+	if (tr[0] == '[') strncat(GBuf, "[", sizeof(GBuf) - strlen(GBuf) - 1);
 	sr_buf(v, q->fld_width[j] == MTYPE, q->mtp[j]);
 	if (j == q->nflds - 1)
 	{	int cnr;
@@ -589,7 +589,7 @@ difcolumns(Lextok *n, char *tr, int v, int j, Queue *q)
 		} else
 		{	cnr = X_lst?X_lst->pid - Have_claim:0;
 		}
-		if (tr[0] == '[') strcat(GBuf, "]");
+		if (tr[0] == '[') strncat(GBuf, "]", sizeof(GBuf) - strlen(GBuf) - 1);
 		pstext(cnr, GBuf);
 	}
 }
@@ -657,16 +657,16 @@ sr_talk(Lextok *n, int v, char *tr, char *a, int j, Queue *q)
 	}
 	if (xspin)
 	{	if ((verbose&4) && tr[0] != '[')
-		sprintf(s, "(state -)\t[values: %d",
+		snprintf(s, sizeof(s), "(state -)\t[values: %d",
 			eval(n->lft));
 		else
-		sprintf(s, "(state -)\t[%d", eval(n->lft));
+		snprintf(s, sizeof(s), "(state -)\t[%d", eval(n->lft));
 		if (strncmp(tr, "Sen", 3) == 0)
-			strcat(s, "!");
+			strncat(s, "!", sizeof(s) - strlen(s) - 1);
 		else
-			strcat(s, "?");
+			strncat(s, "?", sizeof(s) - strlen(s) - 1);
 	} else
-	{	strcpy(s, tr);
+	{	snprintf(s, sizeof(s), "%s", tr);
 	}
 
 	if (j == 0)
@@ -718,12 +718,12 @@ sr_buf(int v, int j, const char *s)
 			{	non_fatal("mtype name %s too long", n->lft->sym->name);
 				break;
 			}
-			sprintf(lbuf, "%s", n->lft->sym->name);
-			strcat(GBuf, lbuf);
+			snprintf(lbuf, sizeof(lbuf), "%s", n->lft->sym->name);
+			strncat(GBuf, lbuf, sizeof(GBuf) - strlen(GBuf) - 1);
 			return;
 	}	}
-	sprintf(lbuf, "%d", v);
-	strcat(GBuf, lbuf);
+	snprintf(lbuf, sizeof(lbuf), "%d", v);
+	strncat(GBuf, lbuf, sizeof(GBuf) - strlen(GBuf) - 1);
 }
 
 void
@@ -869,7 +869,7 @@ newbasename(char *s)
 	b = (BaseName *) emalloc(sizeof(BaseName));
 	b->str = emalloc(strlen(s)+1);
 	b->cnt = 1;
-	strcpy(b->str, s);
+	snprintf(b->str, strlen(s)+1, "%s", s);
 	b->nxt = bsn;
 	bsn = b;
 }
@@ -921,37 +921,37 @@ scan_tree(Lextok *t, char *mn, char *mx)
 		{	fatal("name too long", t->sym->name);
 		}
 
-		strcat(mn, t->sym->name);
+		strncat(mn, t->sym->name, 512 - strlen(mn) - 1);
 
 		if (t->lft)		/* array index */
 		{	if(strlen(t->sym->name) + strlen("[]") > 512)
             {	fatal("name too long", t->sym->name);
             }
-            strcat(mn, "[]");
+            strncat(mn, "[]", 512 - strlen(mn) - 1);
 			newbasename(mn);
-				strcpy(sv, mn);		/* save */
-				strcpy(mn, "");		/* clear */
-				strcat(mx, "[");
+				snprintf(sv, sizeof(sv), "%s", mn);		/* save */
+				mn[0] = '\0';		/* clear */
+				strncat(mx, "[", 512 - strlen(mx) - 1);
 				scan_tree(t->lft, mn, mx);	/* index */
-				strcat(mx, "]");
+				strncat(mx, "]", 512 - strlen(mx) - 1);
 				checkindex(mn, mx);	/* match against basenames */
-				strcpy(mn, sv);		/* restore */
+				snprintf(mn, 512, "%s", sv);		/* restore */
 			delbasename(mn);
 		}
 		if (t->rgt)	/* structure element */
 		{	scan_tree(t->rgt, mn, mx);
 		}
 	} else if (t->ntyp == CONST)
-	{	strcat(mn, "1"); /* really: t->val */
-		sprintf(tmp, "%d", t->val);
-		strcat(mx, tmp);
+	{	strncat(mn, "1", 512 - strlen(mn) - 1); /* really: t->val */
+		snprintf(tmp, sizeof(tmp), "%d", t->val);
+		strncat(mx, tmp, 512 - strlen(mx) - 1);
 	} else if (t->ntyp == '.')
-	{	strcat(mn, ".");
-		strcat(mx, ".");
+	{	strncat(mn, ".", 512 - strlen(mn) - 1);
+		strncat(mx, ".", 512 - strlen(mx) - 1);
 		scan_tree(t->lft, mn, mx);
 	} else
-	{	strcat(mn, "??");
-		strcat(mx, "??");
+	{	strncat(mn, "??", 512 - strlen(mn) - 1);
+		strncat(mx, "??", 512 - strlen(mx) - 1);
 	}
 	lineno = oln;
 }
@@ -963,8 +963,8 @@ no_nested_array_refs(Lextok *n)	/* a [ a[1] ] with a[1] = 1, causes trouble in p
 
 /*	printf("==================================ZAP\n");	*/
 	bsn = (BaseName *) 0;	/* start new list */
-	strcpy(mn, "");
-	strcpy(mx, "");
+	mn[0] = '\0';
+	mx[0] = '\0';
 
 	scan_tree(n, mn, mx);
 /*	printf("==> %s\n", mn);	*/

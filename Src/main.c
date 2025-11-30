@@ -451,9 +451,11 @@ alldone(int estatus)
 			if (stat(P_X, (struct stat *)&x) < 0)
 			{	goto recompile;	/* no executable pan for replay */
 			}
-			tmp = (char *) emalloc(8 + strlen(P_X) + strlen(pan_runtime) +4);
+			{	size_t tmp_size = 8 + strlen(P_X) + strlen(pan_runtime) + 4;
 			/* the final +4 is too allow adding " &" in some cases */
-			sprintf(tmp, "%s %s", P_X, pan_runtime);
+			tmp = (char *) emalloc(tmp_size);
+			snprintf(tmp, tmp_size, "%s %s", P_X, pan_runtime);
+		}
 			goto runit;
 		}
 #if defined(WIN32) || defined(WIN64)
@@ -485,7 +487,7 @@ alldone(int estatus)
 				int x;
 				x = omit_str(pan_runtime, "-w");
 				if (x >= 0)
-				{	sprintf(nv, "-w%d  ", x);
+				{	snprintf(nv, sizeof(nv), "-w%d  ", x);
 					add_runtime(nv); /* added spaces */
 			}	}
 			if (!strstr(pan_runtime, "-h"))
@@ -496,7 +498,7 @@ alldone(int estatus)
 				int x;
 				x = omit_str(pan_runtime, "-h");
 				if (x >= 0)
-				{	sprintf(nv, "-h%d  ", x%500);
+				{	snprintf(nv, sizeof(nv), "-h%d  ", x%500);
 					add_runtime(nv); /* added spaces */
 			}	}
 			if (!strstr(pan_runtime, "-k"))
@@ -506,7 +508,7 @@ alldone(int estatus)
 				int x;
 				x = omit_str(pan_runtime, "-k");
 				if (x >= 0)
-				{	sprintf(nv, "-k%d  ", x%4);
+				{	snprintf(nv, sizeof(nv), "-k%d  ", x%4);
 					add_runtime(nv); /* added spaces */
 			}	}
 			if (strstr(pan_runtime, "-p_rotate"))
@@ -516,7 +518,7 @@ alldone(int estatus)
 				if (x < 0)
 				{	x = 0;
 				}
-				sprintf(nv, "-p_rotate%d  ", x%256);
+				snprintf(nv, sizeof(nv), "-p_rotate%d  ", x%256);
 				add_runtime(nv); /* added spaces */
 			} else if (strstr(pan_runtime, "-p_permute") == 0)
 			{	add_runtime("-p_rotate0  ");
@@ -530,28 +532,29 @@ alldone(int estatus)
 		}
 recompile:
 		if (strstr(PreProc, "cpp"))	/* unix/linux */
-		{	strcpy(PreProc, "gcc");	/* need compiler */
+		{	snprintf(PreProc, sizeof(PreProc), "gcc");	/* need compiler */
 		} else if ((tmp = strstr(PreProc, "-E")) != NULL)
 		{	*tmp = '\0'; /* strip preprocessing flags */
 		}
 
 		final_fiddle();
-		tmp = (char *) emalloc(8 +	/* account for alignment */
+		{	size_t tmp_size = 8 +	/* account for alignment */
 				strlen(PreProc) +
 				strlen(C_X) +
 				strlen(pan_comptime) +
 				strlen(P_X) +
 				strlen(pan_runtime) +
-				strlen(" -p_reverse & "));
-		tmp2 = tmp;
+				strlen(" -p_reverse & ");
+			tmp = (char *) emalloc(tmp_size);
+			tmp2 = tmp;
 
-		/* P_X ends with " && ./pan " */
-		sprintf(tmp, "%s %s %s %s %s",
-			PreProc, C_X, pan_comptime, P_X, pan_runtime);
-
+			/* P_X ends with " && ./pan " */
+			snprintf(tmp, tmp_size, "%s %s %s %s %s",
+				PreProc, C_X, pan_comptime, P_X, pan_runtime);
+		}
 		if (!replay)
 		{	if (itsr < 0)		/* swarm only */
-			{	strcat(tmp, " &"); /* after ./pan */
+			{	strncat(tmp, " &", strlen(tmp) + 3); /* after ./pan */
 				itsr = -itsr;	/* now same as biterate */
 			}
 			/* do compilation first
@@ -616,15 +619,15 @@ runit:
 				change_rs(tmp);			/* change random seed */
 				string_trim(tmp);
 				if (rand()%5 == 0)		/* 20% of all runs */
-				{	strcat(tmp, " -p_reverse ");
+				{	strncat(tmp, " -p_reverse ", strlen(" -p_reverse ") + 1);
 					/* at end, so this overrides -p_rotateN, if there */
 					/* but -P0..1 disable this in 50% of the cases */
 					/* so its really activated in 10% of all runs */
 				} else if (rand()%6 == 0) /* override p_rotate and p_reverse */
-				{	strcat(tmp, " -p_normal ");
+				{	strncat(tmp, " -p_normal ", strlen(" -p_normal ") + 1);
 				}
 				if (is_swarm)
-				{	strcat(tmp, " &");
+				{	strncat(tmp, " &", strlen(" &") + 1);
 				}
 				goto runit;
 		}	}
@@ -683,9 +686,9 @@ preprocess(char *a, char *b, int a_tmp)
 	 */
 	if (strncmp(PreProc, "gcc ", strlen("gcc ")) == 0)
 	{	if (e_system(0, "gcc-4 --version > pan.pre 2>&1") == 0)
-		{	strcpy(PreProc, "gcc-4 -std=gnu99 -Wno-unknown-warning-option -Wformat-overflow=0 -E -x c");
+		{	snprintf(PreProc, sizeof(PreProc), "gcc-4 -std=gnu99 -Wno-unknown-warning-option -Wformat-overflow=0 -E -x c");
 		} else if (e_system(0, "gcc-3 --version > pan.pre 2>&1") == 0)
-		{	strcpy(PreProc, "gcc-3 -std=gnu99 -Wno-unknown-warning-option -Wformat-overflow=0 -E -x c");
+		{	snprintf(PreProc, sizeof(PreProc), "gcc-3 -std=gnu99 -Wno-unknown-warning-option -Wformat-overflow=0 -E -x c");
 	}	}
 #endif
 
@@ -693,10 +696,10 @@ preprocess(char *a, char *b, int a_tmp)
 	{	fprintf(stdout, "spin: preprocessor command too long\n");
 		alldone(1);
 	}
-	strcpy(precmd, PreProc);
+	snprintf(precmd, sizeof(precmd), "%s", PreProc);
 	for (i = 1; i <= PreCnt; i++)
-	{	strcat(precmd, " ");
-		strcat(precmd, PreArg[i]);
+	{	strncat(precmd, " ", sizeof(precmd) - strlen(precmd) - 1);
+		strncat(precmd, PreArg[i], sizeof(precmd) - strlen(precmd) - 1);
 	}
 	if (strlen(precmd) >= sizeof(precmd))
 	{	fprintf(stdout, "spin: too many -D args, aborting\n");
@@ -874,9 +877,11 @@ add_comptime(char *s)
 	{	return;
 	}
 
-	tmp = (char *) emalloc(strlen(pan_comptime)+strlen(s)+2);
-	sprintf(tmp, "%s %s", pan_comptime, s);
-	pan_comptime = tmp;
+	{	size_t tmp_size = strlen(pan_comptime)+strlen(s)+2;
+		tmp = (char *) emalloc(tmp_size);
+		snprintf(tmp, tmp_size, "%s %s", pan_comptime, s);
+		pan_comptime = tmp;
+	}
 }
 
 static struct {
@@ -961,9 +966,11 @@ add_runtime(char *s)
 		return;
 	}
 
-	tmp = (char *) emalloc(strlen(pan_runtime)+strlen(s)+2);
-	sprintf(tmp, "%s %s", pan_runtime, s);
-	pan_runtime = tmp;
+	{	size_t tmp_size = strlen(pan_runtime)+strlen(s)+2;
+		tmp = (char *) emalloc(tmp_size);
+		snprintf(tmp, tmp_size, "%s %s", pan_runtime, s);
+		pan_runtime = tmp;
+	}
 }
 
 #ifdef __MINGW32__
@@ -993,10 +1000,10 @@ main(int argc, char *argv[])
 	yyin  = stdin;
 	yyout = stdout;
 	tl_out = stdout;
-	strcpy(CurScope, "_");
+	snprintf(CurScope, sizeof(CurScope), "_");
 
 	assert(strlen(CPP) < sizeof(PreProc));
-	strcpy(PreProc, CPP);
+	snprintf(PreProc, sizeof(PreProc), "%s", CPP);
 
 	/* unused flags: y, z, G, L, Q, R, W */
 	while (argc > 1 && argv[1][0] == '-')
@@ -1047,7 +1054,7 @@ main(int argc, char *argv[])
 			  {	fprintf(stderr, "spin: -P argument too long (max %zu)\n", sizeof(PreProc) - 1);
 				alldone(1);
 			  }
-			  strcpy(PreProc, (const char *) &argv[1][2]);
+			  snprintf(PreProc, sizeof(PreProc), "%s", (const char *) &argv[1][2]);
 			  break;
 		case 'p': if (argv[1][2] == 'p')
 			  {	pretty_print();
@@ -1190,11 +1197,11 @@ samecase:			if (buzzed != 0)
 		char cmd[512], out2[512];
 
 		/* must remain in current dir */
-		strcpy(out1, "pan.pre");
+		snprintf(out1, sizeof(out1), "pan.pre");
 
 		if (add_ltl || nvr_file)
 		{	assert(strlen(argv[1])+6 < sizeof(out2));
-			sprintf(out2, "%s.nvr", argv[1]);
+			snprintf(out2, sizeof(out2), "%s.nvr", argv[1]);
 			if ((fd = fopen(out2, MFLAGS)) == NULL)
 			{	printf("spin: cannot create tmp file %s\n",
 					out2);
@@ -1229,9 +1236,9 @@ samecase:			if (buzzed != 0)
 
 		if (strncmp(argv[1], "progress", (size_t) 8) == 0
 		||  strncmp(argv[1], "accept", (size_t) 6) == 0)
-		{	sprintf(cmd, "_%s", argv[1]);
+		{	snprintf(cmd, sizeof(cmd), "_%s", argv[1]);
 		} else
-		{	strcpy(cmd, argv[1]);
+		{	snprintf(cmd, sizeof(cmd), "%s", argv[1]);
 		}
 		oFname = Fname = lookup(cmd);
 		if (oFname->name[0] == '\"')
@@ -1333,10 +1340,10 @@ ltl_list(char *nm, char *fm)
 		add_ltl[1] = "-c";
 		add_ltl[2] = nm;
 		add_ltl[3] = "-f";
-		add_ltl[4] = (char *) emalloc(strlen(fm)+4);
-		strcpy(add_ltl[4], "!(");
-		strcat(add_ltl[4], fm);
-		strcat(add_ltl[4], ")");
+		{	size_t ltl_size = strlen(fm)+4;
+			add_ltl[4] = (char *) emalloc(ltl_size);
+			snprintf(add_ltl[4], ltl_size, "!(%s)", fm);
+		}
 		/* add_ltl[4] = fm; */
 		nr_errs += tl_main(4, add_ltl);
 
