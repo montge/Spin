@@ -6,7 +6,7 @@ install:
 
 clean:
 	cd Src; make clean
-	rm -rf test/work coverage
+	rm -rf test/work coverage cppcheck-report.xml
 
 # Run test suite
 test: all
@@ -31,4 +31,30 @@ coverage-summary: coverage-build
 	./test/run_tests.sh || true
 	gcov -n Src/*.c 2>/dev/null | grep -A 1 "File '"
 
-.PHONY: all install clean test coverage coverage-build coverage-summary
+# Static analysis with cppcheck
+cppcheck:
+	cppcheck --enable=warning,style,performance,portability \
+		--suppress=missingIncludeSystem \
+		--suppress=unusedFunction \
+		Src/*.c
+
+# Static analysis with cppcheck (verbose XML report)
+cppcheck-xml:
+	cppcheck --enable=warning,style,performance,portability \
+		--suppress=missingIncludeSystem \
+		--suppress=unusedFunction \
+		--xml --xml-version=2 \
+		Src/*.c 2> cppcheck-report.xml
+	@echo "Report saved to cppcheck-report.xml"
+
+# Build with strict warnings
+strict:
+	cd Src; make clean
+	cd Src; make CFLAGS="-O2 -DNXT -Wall -Wextra -Wformat=2 -Wformat-security -Wshadow -pedantic"
+
+# Run clang static analyzer
+scan-build:
+	cd Src; make clean
+	cd Src; scan-build make
+
+.PHONY: all install clean test coverage coverage-build coverage-summary cppcheck cppcheck-xml strict scan-build

@@ -1,0 +1,28 @@
+# Codecov configuration
+# https://docs.codecov.com/docs/codecov-yaml
+
+coverage:
+  precision: 2
+  round: down
+  range: "30...80"
+
+  status:
+    project:
+      default:
+        # Don't fail CI on coverage changes for now
+        # We're starting from ~40% and working up
+        informational: true
+    patch:
+      default:
+        # Require new code to have at least some coverage
+        informational: true
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default
+  require_changes: true
+
+ignore:
+  - "test/**/*"
+  - "Examples/**/*"
+  - "Doc/**/*"

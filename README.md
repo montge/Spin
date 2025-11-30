@@ -1,4 +1,9 @@
 # Spin
+
+[![CI](https://github.com/montge/Spin/actions/workflows/ci.yml/badge.svg)](https://github.com/montge/Spin/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/montge/Spin/branch/master/graph/badge.svg)](https://codecov.io/gh/montge/Spin)
+[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
+
 ## An Efficient Logic Model Checker for the Verification of Multi-threaded Code
 
 Spin is an open-source software verification tool that was originally

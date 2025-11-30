@@ -98,14 +98,26 @@ jobs:
       - name: Generate coverage report
         run: |
           mkdir -p coverage
-          lcov --capture --directory Src --output-file coverage/coverage.info --ignore-errors source
-          lcov --remove coverage/coverage.info '/usr/*' --output-file coverage/coverage.info
+          lcov --capture --directory Src --output-file coverage/coverage.info --ignore-errors source,unused
+          lcov --remove coverage/coverage.info '/usr/*' --output-file coverage/coverage.info --ignore-errors unused || true
+          lcov --list coverage/coverage.info || true
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           files: coverage/coverage.info
           fail_ci_if_error: false
+          verbose: true
+
+      - name: Generate HTML report
+        run: |
+          genhtml coverage/coverage.info --output-directory coverage/html --ignore-errors source || true
+
+      - name: Upload coverage HTML artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/html/
 
   static-analysis:
     runs-on: ubuntu-latest
@@ -115,17 +127,48 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bison cppcheck
+          sudo apt-get install -y bison cppcheck clang-tools
 
       - name: Run cppcheck
         run: |
           cppcheck --enable=warning,style,performance,portability \
                    --suppress=missingIncludeSystem \
+                   --suppress=unusedFunction \
                    --error-exitcode=0 \
                    --inline-suppr \
+                   --xml --xml-version=2 \
+                   Src/*.c 2> cppcheck-report.xml || true
+          cppcheck --enable=warning,style,performance,portability \
+                   --suppress=missingIncludeSystem \
+                   --suppress=unusedFunction \
                    Src/*.c
+
+      - name: Upload cppcheck report
+        uses: actions/upload-artifact@v4
+        with:
+          name: cppcheck-report
+          path: cppcheck-report.xml
 
       - name: Build with extra warnings
         run: |
           cd Src
-          make CFLAGS="-O2 -DNXT -Wall -Wextra -Wformat=2 -Wformat-security -pedantic"
+          make CFLAGS="-O2 -DNXT -Wall -Wextra -Wformat=2 -Wformat-security -pedantic" 2>&1 | tee ../build-warnings.txt
+
+      - name: Upload build warnings
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-warnings
+          path: build-warnings.txt
+
+      - name: Run clang static analyzer
+        run: |
+          cd Src
+          make clean
+          scan-build --status-bugs -o ../scan-build-report make 2>&1 || true
+
+      - name: Upload scan-build report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scan-build-report
+          path: scan-build-report/

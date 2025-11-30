@@ -17,6 +17,9 @@ make install
 
 # Clean build artifacts
 make clean
+
+# Build with strict warnings
+make strict
 ```
 
 Build configuration is in `Src/makefile`. The build requires gcc (or compatible C compiler) and yacc/bison.
@@ -30,18 +33,24 @@ make test
 # Run tests with coverage report
 make coverage
 # Open coverage/html/index.html for detailed report
+
+# Quick coverage summary
+make coverage-summary
 ```
 
 The test suite (`test/run_tests.sh`) automates the verification workflow documented in `Examples/README_tests.txt`.
 
-### Manual Testing
+## Static Analysis
 
 ```bash
-# Verification workflow (generates and runs C verifier)
-spin -a Examples/loops.pml      # Generate pan.c verifier
-cc -DNOREDUCE -o pan pan.c      # Compile verifier
-./pan                           # Run verification
-spin -t -p Examples/loops.pml   # Guided simulation of counterexample
+# Run cppcheck
+make cppcheck
+
+# Generate XML report
+make cppcheck-xml
+
+# Run clang static analyzer
+make scan-build
 ```
 
 ## CI/CD
@@ -49,6 +58,7 @@ spin -t -p Examples/loops.pml   # Guided simulation of counterexample
 GitHub Actions workflows in `.github/workflows/`:
 - `ci.yml` - Builds on Linux/macOS/Windows, runs tests, coverage, and static analysis
 - `release.yml` - Creates releases with binaries when tags are pushed
+- `nightly.yml` - Daily builds with pre-release binaries
 
 ## Architecture
 
@@ -87,10 +97,3 @@ Note: `pangen*.h` files contain C code templates that get embedded in generated 
 4. Generate C verifier code (`pan.c`)
 5. User compiles verifier with problem-specific flags
 6. Verifier executes exhaustive state space search
-
-## Security Considerations
-
-See GitHub issue #2 for known security issues being addressed. Key areas:
-- Command injection via system() calls in main.c and msc_tcl.c
-- Buffer overflows with strcpy/strcat in spinlex.c, structs.c
-- Predictable temporary filenames in spin.h
