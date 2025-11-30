@@ -569,7 +569,7 @@ try_more:	for (X_lst = run_lst, k = 1; X_lst; X_lst = X_lst->nxt)
 		} else
 		{	char buf[256];
 			fflush(stdout);
-			if (scanf("%64s", buf) == 0)
+			if (scanf("%64s", buf) != 1)
 			{	printf("\tno input\n");
 				goto try_again;
 			}
