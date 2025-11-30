@@ -188,7 +188,7 @@ cast_val(int t, int v, int w)
 	}
 
 	if (v != i+s+ (int) u)
-	{	char buf[64]; sprintf(buf, "%d->%d (%d)", v, i+s+(int)u, t);
+	{	char buf[64]; snprintf(buf, sizeof(buf), "%d->%d (%d)", v, i+s+(int)u, t);
 		non_fatal("value (%s) truncated in assignment", buf);
 	}
 	return (int)(i+s+(int)u);
@@ -298,9 +298,9 @@ dumpglobals(void)
 				GBuf[0] = '\0';
 				if (!xspin)
 				{	if (columns == 2)
-						sprintf(GBuf, "~G%s = ", sp->name);
+						snprintf(GBuf, 4096, "~G%s = ", sp->name);
 					else
-						sprintf(GBuf, "%s = ", sp->name);
+						snprintf(GBuf, 4096, "%s = ", sp->name);
 				}
 				sr_buf(prefetch, sp->type == MTYPE, s);
 				if (sp->colnr == 0)
@@ -378,10 +378,10 @@ dumplocal(RunList *r, int final)
 				GBuf[0] = '\0';
 				if (!xspin)
 				{	if (columns == 2)
-					sprintf(GBuf, "~G%s(%d):%s = ",
+					snprintf(GBuf, 4096, "~G%s(%d):%s = ",
 					r->n->name, r->pid, z->name);
 					else
-					sprintf(GBuf, "%s(%d):%s = ",
+					snprintf(GBuf, 4096, "%s(%d):%s = ",
 					r->n->name, r->pid, z->name);
 				}
 				sr_buf(getval(dummy), z->type==MTYPE, t);

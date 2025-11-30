@@ -147,15 +147,15 @@ match_trail(void)
 
 	if (trailfilename)
 	{	if (strlen(*trailfilename) < sizeof(snap))
-		{	strcpy(snap, (const char *) *trailfilename);
+		{	snprintf(snap, sizeof(snap), "%s", (const char *) *trailfilename);
 		} else
 		{	fatal("filename %s too long", *trailfilename);
 		}
 	} else
 	{	if (ntrail)
-			sprintf(snap, "%s%d.trail", oFname->name, ntrail);
+			snprintf(snap, sizeof(snap), "%s%d.trail", oFname->name, ntrail);
 		else
-			sprintf(snap, "%s.trail", oFname->name);
+			snprintf(snap, sizeof(snap), "%s.trail", oFname->name);
 	}
 
 	if ((fd = fopen(snap, "r")) == NULL)
@@ -164,10 +164,10 @@ match_trail(void)
 		{	if ((q = strchr(oFname->name, '.')) != NULL)
 			{	*q = '\0';
 				if (ntrail)
-					sprintf(snap, "%s%d.trail",
+					snprintf(snap, sizeof(snap), "%s%d.trail",
 						oFname->name, ntrail);
 				else
-					sprintf(snap, "%s.trail",
+					snprintf(snap, sizeof(snap), "%s.trail",
 						oFname->name);
 				*q = '.';
 
@@ -393,7 +393,7 @@ keepgoing:		if (dothis->merge_start)
 		{	lastclaim = dothis->n->ln;
 			if (columns == 2)
 			{	char t[128];
-				sprintf(t, "#%d", lastclaim);
+				snprintf(t, sizeof(t), "#%d", lastclaim);
 				pstext(0, t);
 			} else
 			{

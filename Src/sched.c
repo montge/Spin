@@ -193,7 +193,7 @@ announce(char *w)
 		extern int firstrow;
 		firstrow = 1;
 		if (columns == 2)
-		{	sprintf(GBuf, "%d:%s",
+		{	snprintf(GBuf, 4096, "%d:%s",
 			run_lst->pid - Have_claim, run_lst->n->name);
 			pstext(run_lst->pid - Have_claim, GBuf);
 		} else
@@ -298,11 +298,11 @@ found:
 	if (columns == 2)
 	{	extern char GBuf[];
 		depth = 0;
-		sprintf(GBuf, "%d:%s", 0, p->n->name);
+		snprintf(GBuf, 4096, "%d:%s", 0, p->n->name);
 		pstext(0, GBuf);
 		for (r = run_lst; r; r = r->nxt)
 		{	if (r->b != N_CLAIM)
-			{	sprintf(GBuf, "%d:%s", r->pid+1, r->n->name);
+			{	snprintf(GBuf, 4096, "%d:%s", r->pid+1, r->n->name);
 				pstext(r->pid+1, GBuf);
 	}	}	}
 
@@ -865,8 +865,10 @@ addsymbol(RunList *r, Symbol  *s)
 	t->setat = depth;
 	t->context = r->n;
 
-	t->bscp  = (unsigned char *) emalloc(strlen((const char *)s->bscp)+1);
-	strcpy((char *)t->bscp, (const char *)s->bscp);
+	{	size_t bscplen = strlen((const char *)s->bscp)+1;
+		t->bscp  = (unsigned char *) emalloc(bscplen);
+		snprintf((char *)t->bscp, bscplen, "%s", (const char *)s->bscp);
+	}
 
 	if (s->type != STRUCT)
 	{	if (s->val)	/* if already initialized, copy info */
@@ -936,7 +938,7 @@ oneparam(RunList *r, Lextok *t, Lextok *a, ProcList *p)
 	{	char buf[256], tag1[64], tag2[64];
 		(void) sputtype(tag1, ft);
 		(void) sputtype(tag2, at);
-		sprintf(buf, "type-clash in params of %s(..), (%s<-> %s)",
+		snprintf(buf, sizeof(buf), "type-clash in params of %s(..), (%s<-> %s)",
 			p->n->name, tag1, tag2);
 		non_fatal("%s", buf);
 	}
@@ -1102,7 +1104,7 @@ p_talk(Element *e, int lnr)
 			}
 			*qtr = '\0';
 		} else
-		{	strcpy(nbuf, "-");
+		{	snprintf(nbuf, sizeof(nbuf), "-");
 		}
 		printf("%s:%d (state %d)",
 			nbuf,
