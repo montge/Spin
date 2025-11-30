@@ -789,6 +789,54 @@ test_select_for() {
     fi
 }
 
+# Test 26: Synchronous product generation
+test_product_generation() {
+    run_test "synchronous product generation (-e flag)"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > product_test.pml << 'EOF'
+byte x = 0;
+byte y = 0;
+
+proctype Worker() {
+    do
+    :: x < 2 -> x++
+    :: y < 2 -> y++
+    :: (x >= 1 && y >= 1) -> break
+    od
+}
+
+init { run Worker() }
+
+never claim_x {
+    do
+    :: (x >= 0) -> skip
+    od
+}
+
+never claim_y {
+    do
+    :: (y >= 0) -> skip
+    od
+}
+EOF
+
+    local output
+    output=$("$SPIN" -e product_test.pml 2>&1)
+
+    if echo "$output" | grep -q "never Product" && \
+       echo "$output" | grep -q "U0" && \
+       echo "$output" | grep -q "U1"; then
+        log_pass "synchronous product generation works"
+    else
+        log_fail "synchronous product generation failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
 # Main test runner
 main() {
     echo "========================================"
@@ -804,6 +852,17 @@ main() {
         echo -e "${RED}ERROR${NC}: spin executable not found at $SPIN"
         echo "Build spin first with: cd Src && make"
         exit 1
+    fi
+
+    # Run pangen6 tests if available
+    if [ -x "$SCRIPT_DIR/pangen6_tests.sh" ]; then
+        echo -e "\n${YELLOW}Running pangen6 (AST slicing) tests...${NC}"
+        if "$SCRIPT_DIR/pangen6_tests.sh"; then
+            log_pass "pangen6 test suite completed successfully"
+        else
+            log_info "pangen6 test suite had failures (see output above)"
+        fi
+        echo ""
     fi
 
     # Run tests
@@ -836,6 +895,14 @@ main() {
     test_assertion_failure || true
     test_rendezvous || true
     test_select_for || true
+    test_product_generation || true
+
+    # Run reprosrc tests
+    echo ""
+    echo "Running reprosrc integration tests..."
+    if [ -x "$SCRIPT_DIR/integration/test_reprosrc.sh" ]; then
+        "$SCRIPT_DIR/integration/test_reprosrc.sh" && log_pass "reprosrc tests completed" || log_fail "reprosrc tests failed"
+    fi
 
     # Cleanup
     cleanup_work_dir

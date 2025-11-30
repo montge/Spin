@@ -577,6 +577,19 @@ main() {
     test_bitstate_hashing || true
     test_embedded_c_code || true
 
+    # Run specialized integration tests
+    echo ""
+    echo "========================================"
+    echo "Running MSC/Tcl Integration Tests"
+    echo "========================================"
+    if [ -x "$SCRIPT_DIR/test_msc_tcl.sh" ]; then
+        if "$SCRIPT_DIR/test_msc_tcl.sh"; then
+            log_pass "MSC integration tests completed"
+        else
+            log_fail "MSC integration tests failed"
+        fi
+    fi
+
     cleanup
 
     echo ""
