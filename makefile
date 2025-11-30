@@ -23,7 +23,7 @@ coverage: coverage-build
 	mkdir -p coverage
 	lcov --capture --directory Src --output-file coverage/coverage.info --ignore-errors source
 	lcov --remove coverage/coverage.info '/usr/*' --output-file coverage/coverage.info --ignore-errors unused || true
-	genhtml coverage/coverage.info --output-directory coverage/html --ignore-errors source
+	genhtml coverage/coverage.info --output-directory coverage/html --ignore-errors source --synthesize-missing
 	@echo "Coverage report: coverage/html/index.html"
 
 # Quick coverage summary without HTML report
