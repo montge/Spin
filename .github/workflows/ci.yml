@@ -28,8 +28,14 @@ jobs:
       - name: Check version
         run: ./Src/spin -V
 
-      - name: Run tests
+      - name: Run unit tests
         run: ./test/run_tests.sh
+
+      - name: Run integration tests
+        run: ./test/integration/run_integration_tests.sh
+
+      - name: Run E2E tests
+        run: ./test/e2e/run_e2e_tests.sh
 
   build-macos:
     runs-on: macos-latest
@@ -48,8 +54,14 @@ jobs:
       - name: Check version
         run: ./Src/spin -V
 
-      - name: Run tests
+      - name: Run unit tests
         run: ./test/run_tests.sh
+
+      - name: Run integration tests
+        run: ./test/integration/run_integration_tests.sh
+
+      - name: Run E2E tests
+        run: ./test/e2e/run_e2e_tests.sh
 
   build-windows:
     runs-on: windows-latest
@@ -76,8 +88,14 @@ jobs:
       - name: Check version
         run: ./Src/spin -V
 
-      - name: Run tests
+      - name: Run unit tests
         run: ./test/run_tests.sh
+
+      - name: Run integration tests
+        run: ./test/integration/run_integration_tests.sh
+
+      - name: Run E2E tests
+        run: ./test/e2e/run_e2e_tests.sh
 
   coverage:
     runs-on: ubuntu-latest
@@ -92,8 +110,11 @@ jobs:
       - name: Build with coverage
         run: make coverage-build
 
-      - name: Run tests
-        run: ./test/run_tests.sh || true
+      - name: Run all tests for coverage
+        run: |
+          ./test/run_tests.sh || true
+          ./test/integration/run_integration_tests.sh || true
+          ./test/e2e/run_e2e_tests.sh || true
 
       - name: Generate coverage report
         run: |
