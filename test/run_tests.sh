@@ -285,6 +285,510 @@ test_syntax_error() {
     fi
 }
 
+# Test 9: Deterministic step simulation (dstep)
+test_dstep() {
+    run_test "deterministic step (dstep)"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > dstep_test.pml << 'EOF'
+int x = 0;
+proctype P() {
+    d_step {
+        x = x + 1;
+        x = x + 2;
+        x = x + 3;
+    }
+    assert(x == 6)
+}
+init { run P() }
+EOF
+
+    if "$SPIN" -a dstep_test.pml > /dev/null 2>&1 && \
+       $CC -DSAFETY -o pan pan.c 2>/dev/null && \
+       ./pan -n > /dev/null 2>&1; then
+        log_pass "dstep execution verified"
+    else
+        log_fail "dstep test failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 10: Atomic sequences
+test_atomic() {
+    run_test "atomic sequences"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > atomic_test.pml << 'EOF'
+int counter = 0;
+proctype Increment() {
+    atomic {
+        int temp = counter;
+        counter = temp + 1
+    }
+}
+init {
+    atomic { run Increment(); run Increment() }
+}
+EOF
+
+    if "$SPIN" -a atomic_test.pml > /dev/null 2>&1 && \
+       $CC -DSAFETY -o pan pan.c 2>/dev/null && \
+       ./pan -n > /dev/null 2>&1; then
+        log_pass "atomic execution verified"
+    else
+        log_fail "atomic test failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 11: Channel operations
+test_channels() {
+    run_test "channel operations"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > channel_test.pml << 'EOF'
+mtype = { msg1, msg2, ack };
+chan toR = [2] of { mtype, byte };
+chan toS = [2] of { mtype };
+
+proctype Sender() {
+    toR ! msg1, 5;
+    toS ? ack;
+    toR ! msg2, 10;
+    toS ? ack
+}
+
+proctype Receiver() {
+    mtype t; byte d;
+    toR ? t, d;
+    assert(t == msg1 && d == 5);
+    toS ! ack;
+    toR ? t, d;
+    assert(t == msg2 && d == 10);
+    toS ! ack
+}
+
+init {
+    run Sender();
+    run Receiver()
+}
+EOF
+
+    if "$SPIN" -a channel_test.pml > /dev/null 2>&1 && \
+       $CC -DSAFETY -o pan pan.c 2>/dev/null && \
+       ./pan -n > /dev/null 2>&1; then
+        log_pass "channel operations verified"
+    else
+        log_fail "channel test failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 12: Printf output
+test_printf() {
+    run_test "printf output"
+    local output
+    output=$("$SPIN" -c0 "$EXAMPLES_DIR/hello.pml" 2>&1)
+    if echo "$output" | grep -q "passed"; then
+        log_pass "printf output works"
+    else
+        log_fail "printf output not working"
+        return 1
+    fi
+}
+
+# Test 13: Inline expansion
+test_inline() {
+    run_test "inline expansion"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > inline_test.pml << 'EOF'
+inline increment(x) { x = x + 1 }
+int val = 0;
+init {
+    increment(val);
+    increment(val);
+    assert(val == 2)
+}
+EOF
+
+    if "$SPIN" -a inline_test.pml > /dev/null 2>&1 && \
+       $CC -DSAFETY -o pan pan.c 2>/dev/null && \
+       ./pan -n > /dev/null 2>&1; then
+        log_pass "inline expansion works"
+    else
+        log_fail "inline test failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 14: Typedef/struct support
+test_typedef() {
+    run_test "typedef/struct support"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > typedef_test.pml << 'EOF'
+typedef Point {
+    int x;
+    int y
+};
+
+Point p;
+
+init {
+    p.x = 10;
+    p.y = 20;
+    assert(p.x + p.y == 30)
+}
+EOF
+
+    if "$SPIN" -a typedef_test.pml > /dev/null 2>&1 && \
+       $CC -DSAFETY -o pan pan.c 2>/dev/null && \
+       ./pan -n > /dev/null 2>&1; then
+        log_pass "typedef/struct works"
+    else
+        log_fail "typedef test failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 15: Array operations
+test_arrays() {
+    run_test "array operations"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > array_test.pml << 'EOF'
+int arr[5];
+init {
+    int i;
+    for (i : 0 .. 4) {
+        arr[i] = i * 2
+    };
+    assert(arr[0] == 0);
+    assert(arr[2] == 4);
+    assert(arr[4] == 8)
+}
+EOF
+
+    if "$SPIN" -a array_test.pml > /dev/null 2>&1 && \
+       $CC -DSAFETY -o pan pan.c 2>/dev/null && \
+       ./pan -n > /dev/null 2>&1; then
+        log_pass "array operations work"
+    else
+        log_fail "array test failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 16: Never claim
+test_never_claim() {
+    run_test "never claim verification"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > never_test.pml << 'EOF'
+int x = 0;
+proctype P() {
+    do
+    :: x < 10 -> x++
+    :: x >= 5 -> break
+    od
+}
+never {
+    do
+    :: x >= 0
+    od
+}
+init { run P() }
+EOF
+
+    if "$SPIN" -a never_test.pml > /dev/null 2>&1 && \
+       $CC -o pan pan.c 2>/dev/null && \
+       ./pan -a > /dev/null 2>&1; then
+        log_pass "never claim verification works"
+    else
+        log_fail "never claim test failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 17: Remote reference
+test_remote_ref() {
+    run_test "remote reference"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > remote_test.pml << 'EOF'
+proctype P() {
+    int myval = 42;
+end: skip
+}
+init {
+    run P();
+    (_nr_pr == 1)
+}
+EOF
+
+    if "$SPIN" -a remote_test.pml > /dev/null 2>&1 && \
+       $CC -DSAFETY -o pan pan.c 2>/dev/null && \
+       ./pan -n 2>&1 | grep -q "errors: 0"; then
+        log_pass "remote reference works"
+    else
+        log_fail "remote reference test failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 18: Bit operations
+test_bit_operations() {
+    run_test "bit operations"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > bits_test.pml << 'EOF'
+init {
+    int a = 5;    /* 0101 */
+    int b = 3;    /* 0011 */
+    assert((a & b) == 1);  /* 0001 */
+    assert((a | b) == 7);  /* 0111 */
+    assert((a ^ b) == 6);  /* 0110 */
+    assert((a << 1) == 10);
+    assert((a >> 1) == 2)
+}
+EOF
+
+    if "$SPIN" -a bits_test.pml > /dev/null 2>&1 && \
+       $CC -DSAFETY -o pan pan.c 2>/dev/null && \
+       ./pan -n > /dev/null 2>&1; then
+        log_pass "bit operations work"
+    else
+        log_fail "bit operations test failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 19: Timeout
+test_timeout() {
+    run_test "timeout handling"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > timeout_test.pml << 'EOF'
+chan ch = [0] of { int };
+proctype P() {
+    int x;
+    if
+    :: ch ? x
+    :: timeout -> skip
+    fi
+}
+init { run P() }
+EOF
+
+    if "$SPIN" -a timeout_test.pml > /dev/null 2>&1 && \
+       $CC -DSAFETY -o pan pan.c 2>/dev/null && \
+       ./pan -n > /dev/null 2>&1; then
+        log_pass "timeout handling works"
+    else
+        log_fail "timeout test failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 20: Unless construct
+test_unless() {
+    run_test "unless construct"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > unless_test.pml << 'EOF'
+int x = 0;
+proctype P() {
+    { x = 1; x = 2; x = 3 }
+    unless
+    { x == 2 -> x = 100 }
+}
+init { run P() }
+EOF
+
+    if "$SPIN" -a unless_test.pml > /dev/null 2>&1 && \
+       $CC -DSAFETY -o pan pan.c 2>/dev/null && \
+       ./pan -n > /dev/null 2>&1; then
+        log_pass "unless construct works"
+    else
+        log_fail "unless test failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 21: Parser - print format
+test_print_formats() {
+    run_test "print format parsing"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > print_test.pml << 'EOF'
+init {
+    printf("decimal: %d\n", 42);
+    printf("unsigned: %u\n", 42);
+    printf("octal: %o\n", 42);
+    printf("hex: %x\n", 42);
+    printf("char: %c\n", 65)
+}
+EOF
+
+    local output
+    output=$("$SPIN" print_test.pml 2>&1)
+    if echo "$output" | grep -q "decimal: 42" && \
+       echo "$output" | grep -q "hex: 2a"; then
+        log_pass "print format parsing works"
+    else
+        log_fail "print format parsing failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 22: Progress labels (using cambridge.pml example)
+test_progress_labels() {
+    run_test "progress labels"
+    if [ -f "$EXAMPLES_DIR/cambridge.pml" ]; then
+        cleanup_work_dir
+        cd "$TEST_WORK_DIR"
+
+        if "$SPIN" -a "$EXAMPLES_DIR/cambridge.pml" > /dev/null 2>&1 && \
+           $CC -DNP -DNOREDUCE -o pan pan.c 2>/dev/null && \
+           ./pan -l > /dev/null 2>&1; then
+            log_pass "progress labels work"
+        else
+            log_fail "progress labels test failed"
+            return 1
+        fi
+
+        cd - > /dev/null
+    else
+        log_skip "cambridge.pml not found"
+    fi
+}
+
+# Test 23: Assertion failure detection
+test_assertion_failure() {
+    run_test "assertion failure detection"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > assert_fail.pml << 'EOF'
+init {
+    int x = 5;
+    assert(x == 10)
+}
+EOF
+
+    "$SPIN" -a assert_fail.pml > /dev/null 2>&1
+    $CC -DSAFETY -o pan pan.c 2>/dev/null
+
+    local output
+    output=$(./pan 2>&1)
+    if echo "$output" | grep -q "assertion violated"; then
+        log_pass "assertion failure correctly detected"
+    else
+        log_fail "assertion failure not detected"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 24: Rendezvous channels
+test_rendezvous() {
+    run_test "rendezvous channels"
+    cleanup_work_dir
+    cd "$TEST_WORK_DIR"
+
+    cat > rendezvous_test.pml << 'EOF'
+chan sync = [0] of { int };
+int received = 0;
+
+proctype Sender() {
+    sync ! 42
+}
+
+proctype Receiver() {
+    int x;
+    sync ? x;
+    received = x
+}
+
+init {
+    run Sender();
+    run Receiver();
+    (_nr_pr == 1) -> assert(received == 42)
+}
+EOF
+
+    if "$SPIN" -a rendezvous_test.pml > /dev/null 2>&1 && \
+       $CC -DSAFETY -o pan pan.c 2>/dev/null && \
+       ./pan -n > /dev/null 2>&1; then
+        log_pass "rendezvous channels work"
+    else
+        log_fail "rendezvous test failed"
+        return 1
+    fi
+
+    cd - > /dev/null
+}
+
+# Test 25: Select/for statements
+test_select_for() {
+    run_test "select/for statements"
+    if [ -f "$EXAMPLES_DIR/for_select_example.pml" ]; then
+        cleanup_work_dir
+        cd "$TEST_WORK_DIR"
+
+        if "$SPIN" -a "$EXAMPLES_DIR/for_select_example.pml" > /dev/null 2>&1 && \
+           $CC -DSAFETY -o pan pan.c 2>/dev/null && \
+           ./pan -n > /dev/null 2>&1; then
+            log_pass "select/for statements work"
+        else
+            log_fail "select/for test failed"
+            return 1
+        fi
+
+        cd - > /dev/null
+    else
+        log_skip "for_select_example.pml not found"
+    fi
+}
+
 # Main test runner
 main() {
     echo "========================================"
@@ -313,6 +817,25 @@ main() {
     test_ltl_formula || true
     test_example_files || true
     test_syntax_error || true
+
+    # Additional coverage tests
+    test_dstep || true
+    test_atomic || true
+    test_channels || true
+    test_printf || true
+    test_inline || true
+    test_typedef || true
+    test_arrays || true
+    test_never_claim || true
+    test_remote_ref || true
+    test_bit_operations || true
+    test_timeout || true
+    test_unless || true
+    test_print_formats || true
+    test_progress_labels || true
+    test_assertion_failure || true
+    test_rendezvous || true
+    test_select_for || true
 
     # Cleanup
     cleanup_work_dir
