@@ -63,8 +63,9 @@ disambiguate(void)
 		&&  sp->type != LABEL
 		&&  strlen((const char *)sp->bscp) > 1)
 		{	if (sp->context)
-			{	m = (char *) emalloc(strlen((const char *)sp->bscp) + 1);
-				sprintf(m, "_%d_", sp->context->sc);
+			{	size_t msize = strlen((const char *)sp->bscp) + 1;
+				m = (char *) emalloc(msize);
+				snprintf(m, msize, "_%d_", sp->context->sc);
 				if (strcmp((const char *) m, (const char *) sp->bscp) == 0)
 				{	continue;
 				/* 6.2.0: only prepend scope for inner-blocks,
@@ -74,9 +75,11 @@ disambiguate(void)
 				 */
 			}	}
 
-			n = (char *) emalloc(strlen((const char *)sp->name)
-				+ strlen((const char *)sp->bscp) + 1);
-			sprintf(n, "%s%s", sp->bscp, sp->name);
+			{	size_t nsize = strlen((const char *)sp->name)
+					+ strlen((const char *)sp->bscp) + 1;
+				n = (char *) emalloc(nsize);
+				snprintf(n, nsize, "%s%s", sp->bscp, sp->name);
+			}
 			sp->name = n;	/* discard the old memory */
 	}	}
 }
@@ -120,14 +123,18 @@ lookup(char *s)
 		{	return sp;		/* global */
 	}	}
 	sp = (Symbol *) emalloc(sizeof(Symbol));
-	sp->name = (char *) emalloc(strlen(s) + 1);
-	strcpy(sp->name, s);
+	{	size_t slen = strlen(s) + 1;
+		sp->name = (char *) emalloc(slen);
+		snprintf(sp->name, slen, "%s", s);
+	}
 	sp->nel = 1;
 	sp->setat = depth;
 	sp->context = context;
 	sp->owner = owner;			/* if fld in struct */
-	sp->bscp = (unsigned char *) emalloc(strlen((const char *)CurScope)+1);
-	strcpy((char *)sp->bscp, CurScope);
+	{	size_t scopelen = strlen((const char *)CurScope)+1;
+		sp->bscp = (unsigned char *) emalloc(scopelen);
+		snprintf((char *)sp->bscp, scopelen, "%s", CurScope);
+	}
 
 	if (NamesNotAdded == 0)
 	{	sp->next = symtab[h];
@@ -205,7 +212,7 @@ checkrun(Symbol *parnm, int posno)
 	}		}
 	if (!(res&4) || !(res&8))
 	{	if (!(verbose&32)) return;
-		strcpy(buf2, (!(res&4))?"bit":"byte");
+		snprintf(buf2, sizeof(buf2), "%s", (!(res&4))?"bit":"byte");
 		sputtype(buf, parnm->type);
 		i = (int) strlen(buf);
 		while (i > 0 && buf[--i] == ' ') buf[i] = '\0';
@@ -395,8 +402,10 @@ find_mtype_list(const char *s)
 	}	}
 	/* not found, create it */
 	lst = (Mtypes_t *) emalloc(sizeof(Mtypes_t));
-	lst->nm = (char *) emalloc(strlen(s)+1);
-	strcpy(lst->nm, s);
+	{	size_t slen = strlen(s)+1;
+		lst->nm = (char *) emalloc(slen);
+		snprintf(lst->nm, slen, "%s", s);
+	}
 	lst->nxt = Mtypes;
 	Mtypes = lst;
 	return &(lst->mt);
@@ -498,17 +507,17 @@ int
 sputtype(char *foo, int m)
 {
 	switch (m) {
-	case UNSIGNED:	strcpy(foo, "unsigned "); break;
-	case BIT:	strcpy(foo, "bit   "); break;
-	case BYTE:	strcpy(foo, "byte  "); break;
-	case CHAN:	strcpy(foo, "chan  "); break;
-	case SHORT:	strcpy(foo, "short "); break;
-	case INT:	strcpy(foo, "int   "); break;
-	case MTYPE:	strcpy(foo, "mtype "); break;
-	case STRUCT:	strcpy(foo, "struct"); break;
-	case PROCTYPE:	strcpy(foo, "proctype"); break;
-	case LABEL:	strcpy(foo, "label "); return 0;
-	default:	strcpy(foo, "value "); return 0;
+	case UNSIGNED:	snprintf(foo, 16, "unsigned "); break;
+	case BIT:	snprintf(foo, 16, "bit   "); break;
+	case BYTE:	snprintf(foo, 16, "byte  "); break;
+	case CHAN:	snprintf(foo, 16, "chan  "); break;
+	case SHORT:	snprintf(foo, 16, "short "); break;
+	case INT:	snprintf(foo, 16, "int   "); break;
+	case MTYPE:	snprintf(foo, 16, "mtype "); break;
+	case STRUCT:	snprintf(foo, 16, "struct"); break;
+	case PROCTYPE:	snprintf(foo, 16, "proctype"); break;
+	case LABEL:	snprintf(foo, 16, "label "); return 0;
+	default:	snprintf(foo, 16, "value "); return 0;
 	}
 	return 1;
 }

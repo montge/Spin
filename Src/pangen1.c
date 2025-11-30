@@ -459,12 +459,12 @@ end_labs(Symbol *s, int i)
 			acceptors   += ln[j].m;
 			progressors += ln[j].p;
 			if (l->e->status & D_ATOM)
-			{	sprintf(foo, "%s label inside d_step",
+			{	snprintf(foo, sizeof(foo), "%s label inside d_step",
 					ln[j].s);
 				goto complain;
 			}
 			if (j > 0 && (l->e->status & ATOM))
-			{	sprintf(foo, "%s label inside atomic",
+			{	snprintf(foo, sizeof(foo), "%s label inside atomic",
 					ln[j].s);
 		complain:	lineno = l->e->n->ln;
 				Fname  = l->e->n->fn;
@@ -574,7 +574,7 @@ dolocal(FILE *ofd, char *pre, int dowhat, int p, char *s, enum btypes b)
 			&&  strcmp(s, sp->context->name) == 0)
 			{	checktype(sp, s); /* fall through */
 				if (!(sp->hidden&16))
-				{	sprintf(buf, "((P%d *)pptr(h))->", p);
+				{	snprintf(buf, sizeof(buf), "((P%d *)pptr(h))->", p);
 					do_var(ofd, dowhat, buf, sp, "", " = ", ";\n");
 				}
 				k++;
@@ -595,14 +595,14 @@ dolocal(FILE *ofd, char *pre, int dowhat, int p, char *s, enum btypes b)
 					if (sp->type == CHAN
 					&&  verbose == 0)
 						break;
-					sprintf(buf, "%s%s:", pre, s);
-					{ sprintf(buf2, "\", ((P%d *)pptr(h))->", p);
-					  sprintf(buf3, ");\n");
+					snprintf(buf, sizeof(buf), "%s%s:", pre, s);
+					{ snprintf(buf2, sizeof(buf2), "\", ((P%d *)pptr(h))->", p);
+					  snprintf(buf3, sizeof(buf3), ");\n");
 					}
 					do_var(ofd, dowhat, "", sp, buf, buf2, buf3);
 					break;
 				case PUTV:
-					sprintf(buf, "((P%d *)pptr(h))->", p);
+					snprintf(buf, sizeof(buf), "((P%d *)pptr(h))->", p);
 					do_var(ofd, dowhat, buf, sp, "", " = ", ";\n");
 					k++;
 					break;
@@ -641,7 +641,7 @@ c_chandump(FILE *fd)
 
 	for (q = qtab; q; q = q->nxt)
 	{	fprintf(fd, "	case %d:\n\t\t", q->qid);
-		sprintf(buf, "((Q%d *)z)->", q->qid);
+		snprintf(buf, sizeof(buf), "((Q%d *)z)->", q->qid);
 
 		fprintf(fd, "for (slot = 0; slot < %sQlen; slot++)\n\t\t", buf);
 		fprintf(fd, "{	printf(\" [\");\n\t\t");
@@ -688,7 +688,7 @@ c_var(FILE *fd, char *pref, Symbol *sp)
 		/* c_struct(fd, pref, sp); */
 		fprintf(fd, "\t\tprintf(\"\t(struct %s)\\n\");\n",
 			sp->name);
-		sprintf(buf, "%s%s.", pref, sp->name);
+		snprintf(buf, sizeof(buf), "%s%s.", pref, sp->name);
 		c_struct(fd, buf, sp);
 		break;
 	case MTYPE:
@@ -770,7 +770,7 @@ c_splurge(FILE *fd, ProcList *p)
 		|| (sp->type == MTYPE && ismtype(sp->name)))
 			continue;
 
-		sprintf(pref, "((P%d *)pptr(pid))->", p->tn);
+		snprintf(pref, sizeof(pref), "((P%d *)pptr(pid))->", p->tn);
 		c_var(fd, pref, sp);
 	}
 }
@@ -1479,7 +1479,7 @@ genaddqueue(void)
 	ntimes(fd_tc, 0, 1, Addq11);
 
 	for (q = qtab; q; q = q->nxt)
-	{	sprintf(buf0, "((Q%d *)z)->", q->qid);
+	{	snprintf(buf0, sizeof(buf0), "((Q%d *)z)->", q->qid);
 		fprintf(fd_tc, "\tcase %d:%s\n", q->qid,
 			(q->nslots)?"":" /* =rv= */");
 		if (q->nslots == 0)	/* reset handshake point */
@@ -1489,7 +1489,7 @@ genaddqueue(void)
 		{	fprintf(fd_tc, "\t\tif (!sorted) goto append%d;\n", q->qid);
 			fprintf(fd_tc, "\t\tfor (j = 0; j < %sQlen; j++)\n", buf0);
 			fprintf(fd_tc, "\t\t{\t/* find insertion point */\n");
-			sprintf(buf0, "((Q%d *)z)->contents[j].fld", q->qid);
+			snprintf(buf0, sizeof(buf0), "((Q%d *)z)->contents[j].fld", q->qid);
 			for (j = 0; j < q->nflds; j++)
 			{	fprintf(fd_tc, "\t\t\tif (fld%d > %s%d) continue;\n",
 						j, buf0, j);
@@ -1498,7 +1498,7 @@ genaddqueue(void)
 			}
 			fprintf(fd_tc, "\t\t}\n");
 			fprintf(fd_tc, "\tfound%d:\n", q->qid);
-			sprintf(buf0, "((Q%d *)z)->", q->qid);
+			snprintf(buf0, sizeof(buf0), "((Q%d *)z)->", q->qid);
 			fprintf(fd_tc, "\t\tfor (k = %sQlen - 1; k >= j; k--)\n", buf0);
 			fprintf(fd_tc, "\t\t{\t/* shift up */\n");
 			for (j = 0; j < q->nflds; j++)
@@ -1515,7 +1515,7 @@ genaddqueue(void)
 		fprintf(fd_tc, "\t\t(trpt+1)->ipt = j;\n");	/* ipt was bup.oval */
 		fprintf(fd_tc, "#endif\n");
 		fprintf(fd_tc, "\t\t%sQlen = %sQlen + 1;\n", buf0, buf0);
-		sprintf(buf0, "((Q%d *)z)->contents[j].fld", q->qid);
+		snprintf(buf0, sizeof(buf0), "((Q%d *)z)->contents[j].fld", q->qid);
 		for (j = 0; j < q->nflds; j++)
 		{	fprintf(fd_tc, "\t\t%s%d = fld%d;", buf0, j, j);
 			if (q->fld_width[j] == MTYPE)
@@ -1545,7 +1545,7 @@ genaddqueue(void)
 
 	ntimes(fd_tc, 0, 1, Addq4);
 	for (q = qtab; q; q = q->nxt)
-	{	sprintf(buf0, "((Q%d *)z)->", q->qid);
+	{	snprintf(buf0, sizeof(buf0), "((Q%d *)z)->", q->qid);
 		fprintf(fd_tc, "	case %d:%s\n\t\t",
 			q->qid, (q->nslots)?"":" /* =rv= */");
 		if (q->nflds == 1)
@@ -1562,13 +1562,13 @@ genaddqueue(void)
 		if (q->nslots == 0)
 		{	fprintf(fd_tc, "\t\t{	j = %sQlen - 1;\n",  buf0);
 			fprintf(fd_tc, "\t\t	%sQlen = 0;\n", buf0);
-			sprintf(buf0, "\t\t\t((Q%d *)z)->contents", q->qid);
+			snprintf(buf0, sizeof(buf0), "\t\t\t((Q%d *)z)->contents", q->qid);
 		} else
 	 	{	fprintf(fd_tc, "\t\t{	j = %sQlen;\n",  buf0);
 			fprintf(fd_tc, "\t\t	%sQlen = --j;\n", buf0);
 			fprintf(fd_tc, "\t\t	for (k=slot; k<j; k++)\n");
 			fprintf(fd_tc, "\t\t	{\n");
-			sprintf(buf0, "\t\t\t((Q%d *)z)->contents", q->qid);
+			snprintf(buf0, sizeof(buf0), "\t\t\t((Q%d *)z)->contents", q->qid);
 			for (j = 0; j < q->nflds; j++)
 			{	fprintf(fd_tc, "\t%s[k].fld%d = \n", buf0, j);
 				fprintf(fd_tc, "\t\t%s[k+1].fld%d;\n", buf0, j);
