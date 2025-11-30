@@ -945,12 +945,12 @@ genconditionals(void)
 		} else if (s->type == STRUCT)
 		{	/* struct may contain a chan */
 			char pregat[128];
-			strcpy(pregat, "");
+			pregat[0] = '\0';
 			if (!(s->hidden&1))
 			{	if (s->context)
-					sprintf(pregat, "((P%d *)_this)->",j);
+					snprintf(pregat, sizeof(pregat), "((P%d *)_this)->",j);
 				else
-					sprintf(pregat, "now.");
+					snprintf(pregat, sizeof(pregat), "now.");
 			}
 			walk2_struct(pregat, s);
 		}
@@ -1661,9 +1661,10 @@ lab_transfer(Element *to, Element *from)
 	oc = context;	/* remember */
 	for (ltp = 1; ltp < 8; ltp *= 2)	/* 1, 2, and 4 */
 		if ((s = has_lab(from, ltp)) != (Symbol *) 0)
-		{	ns = (Symbol *) emalloc(sizeof(Symbol));
-			ns->name = (char *) emalloc((int) strlen(s->name) + 4);
-			sprintf(ns->name, "%s%d", s->name, modifier);
+		{	size_t nslen = strlen(s->name) + 4;
+			ns = (Symbol *) emalloc(sizeof(Symbol));
+			ns->name = (char *) emalloc(nslen);
+			snprintf(ns->name, nslen, "%s%d", s->name, modifier);
 
 			context = s->context;
 			set_lab(ns, to);
@@ -2381,8 +2382,8 @@ dump_tree(const char *s, Lextok *p)
 	if (p->ntyp == 312) printf(": %d", p->val);
 	printf(")");
 
-	if (p->lft) { sprintf(z, "%sL", s); dump_tree(z, p->lft); }
-	if (p->rgt) { sprintf(z, "%sR", s); dump_tree(z, p->rgt); }
+	if (p->lft) { snprintf(z, sizeof(z), "%sL", s); dump_tree(z, p->lft); }
+	if (p->rgt) { snprintf(z, sizeof(z), "%sR", s); dump_tree(z, p->rgt); }
 }
 
 void
@@ -2891,11 +2892,11 @@ putstmnt(FILE *fd, Lextok *now, int m)
 
 				if (multi_oval)
 				{	check_needed();
-					sprintf(tempbuf, "(trpt+1)->bup.ovals[%d] = ",
+					snprintf(tempbuf, sizeof(tempbuf), "(trpt+1)->bup.ovals[%d] = ",
 						multi_oval-1);
 					multi_oval++;
 				} else
-					sprintf(tempbuf, "(trpt+1)->bup.oval = ");
+					snprintf(tempbuf, sizeof(tempbuf), "(trpt+1)->bup.oval = ");
 
 				if (v->lft->sym && !strcmp(v->lft->sym->name, "_"))
 				{	fprintf(fd, tempbuf, (char *) 0);
@@ -3147,7 +3148,7 @@ putstmnt(FILE *fd, Lextok *now, int m)
 		{	if (multi_oval)
 			{	char tempbuf[64];
 				check_needed();
-				sprintf(tempbuf, "(trpt+1)->bup.ovals[%d] = ",
+				snprintf(tempbuf, sizeof(tempbuf), "(trpt+1)->bup.ovals[%d] = ",
 					multi_oval-1);
 				multi_oval++;
 				cat30(tempbuf, now->lft, ";\n\t\t");

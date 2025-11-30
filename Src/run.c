@@ -526,14 +526,14 @@ interprint(FILE *fd, Lextok *n)
 			case '\"': break; /* ignore */
 			case '\\':
 				 switch(s[++i]) {
-				 case 't': strcat(GBuf, "\t"); break;
-				 case 'n': strcat(GBuf, "\n"); break;
+				 case 't': strncat(GBuf, "\t", 4095 - strlen(GBuf)); break;
+				 case 'n': strncat(GBuf, "\n", 4095 - strlen(GBuf)); break;
 				 default:  goto onechar;
 				 }
 				 break;
 			case  '%':
 				 if ((c = s[++i]) == '%')
-				 {	strcat(GBuf, "%"); /* literal */
+				 {	strncat(GBuf, "%", 4095 - strlen(GBuf)); /* literal */
 					break;
 				 }
 				 if (!tmp)
@@ -553,26 +553,26 @@ interprint(FILE *fd, Lextok *n)
 	
 				 tmp = tmp->rgt;
 				 switch(c) {
-				 case 'c': sprintf(lbuf, "%c", j); break;
-				 case 'd': sprintf(lbuf, "%d", j); break;
-	
-				 case 'e': strcpy(tBuf, GBuf);	/* event name */
+				 case 'c': snprintf(lbuf, sizeof(lbuf), "%c", j); break;
+				 case 'd': snprintf(lbuf, sizeof(lbuf), "%d", j); break;
+
+				 case 'e': snprintf(tBuf, sizeof(tBuf), "%s", GBuf);	/* event name */
 					   GBuf[0] = '\0';
 					   sr_buf(j, 1, t);
-					   strcpy(lbuf, GBuf);
-					   strcpy(GBuf, tBuf);
+					   snprintf(lbuf, sizeof(lbuf), "%s", GBuf);
+					   snprintf(GBuf, 4096, "%s", tBuf);
 					   break;
-	
-				 case 'o': sprintf(lbuf, "%o", j); break;
-				 case 'u': sprintf(lbuf, "%u", (unsigned) j); break;
-				 case 'x': sprintf(lbuf, "%x", j); break;
+
+				 case 'o': snprintf(lbuf, sizeof(lbuf), "%o", j); break;
+				 case 'u': snprintf(lbuf, sizeof(lbuf), "%u", (unsigned) j); break;
+				 case 'x': snprintf(lbuf, sizeof(lbuf), "%x", j); break;
 				 default:  non_fatal("bad print cmd: '%s'", &s[i-1]);
 					   lbuf[0] = '\0'; break;
 				 }
 				 goto append;
 			default:
 onechar:			 lbuf[0] = s[i]; lbuf[1] = '\0';
-append:				 strcat(GBuf, lbuf);
+append:				 strncat(GBuf, lbuf, 4095 - strlen(GBuf));
 				 break;
 		}	}
 		dotag(fd, GBuf);

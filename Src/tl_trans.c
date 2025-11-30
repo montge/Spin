@@ -137,7 +137,7 @@ pop_stack(void)
 static char *
 newname(void)
 {	static char buf[32];
-	sprintf(buf, "S%d", state_cnt++);
+	snprintf(buf, sizeof(buf), "S%d", state_cnt++);
 	return buf;
 }
 
@@ -372,15 +372,15 @@ set_prefix(char *pref, int count, Graph *r2)
 
 	if (Lab_cnt == 0
 	||  Max_Red == 0)
-		sprintf(pref, "accept");	/* new */
+		snprintf(pref, 128, "accept");	/* new */
 	else if (count >= Max_Red)
-		sprintf(pref, "T0");		/* cycle */
+		snprintf(pref, 128, "T0");		/* cycle */
 	else
 	{	incr_cnt = choueka(r2, count+1);
 		if (incr_cnt + count >= Max_Red)
-			sprintf(pref, "accept"); /* last hop */
+			snprintf(pref, 128, "accept"); /* last hop */
 		else
-			sprintf(pref, "T%d", count+incr_cnt);
+			snprintf(pref, 128, "T%d", count+incr_cnt);
 	}
 	return incr_cnt;
 }
@@ -399,9 +399,9 @@ fsm_trans(Graph *p, int count, char *curnm)
 		if (!r) continue;
 		if (r->outgoing)
 		{	(void) set_prefix(prefix, count, r);
-			sprintf(nwnm, "%s_%s", prefix, s->name);
+			snprintf(nwnm, sizeof(nwnm), "%s_%s", prefix, s->name);
 		} else
-			strcpy(nwnm, "accept_all");
+			snprintf(nwnm, sizeof(nwnm), "accept_all");
 
 		if (tl_verbose)
 		{	printf("maxred=%d, count=%d, curnm=%s, nwnm=%s ",
@@ -431,11 +431,11 @@ mkbuchi(void)
 
 		if (k == Max_Red
 		&&  strcmp(p->name->name, "init") != 0)
-			strcpy(curnm, "accept_");
+			snprintf(curnm, sizeof(curnm), "accept_");
 		else
-			sprintf(curnm, "T%d_", k);
+			snprintf(curnm, sizeof(curnm), "T%d_", k);
 
-		strcat(curnm, p->name->name);
+		strncat(curnm, p->name->name, sizeof(curnm) - strlen(curnm) - 1);
 
 		fsm_trans(p, k, curnm);
 	}
