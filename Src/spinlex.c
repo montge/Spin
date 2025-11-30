@@ -711,8 +711,7 @@ c_add_loc(FILE *fd, char *s)	/* state vector entries for proctype s */
 
 	if (!c_added) return;
 
-	strcpy(buf, s);
-	strcat(buf, " ");
+	snprintf(buf, sizeof(buf), "%s ", s);
 	for (r = c_added; r; r = r->nxt)	/* pickup local decls */
 	{	if (strncmp(r->t->name, " Local", strlen(" Local")) == 0)
 		{	p = r->t->name + strlen(" Local");
@@ -919,7 +918,7 @@ check_inline(IType *tmp)
 	for (p = ready; p; p = p->nxt)
 	{	if (strcmp(p->n->name, X_lst->n->name) == 0)
 			continue;
-		sprintf(buf, "P%s->", p->n->name);
+		snprintf(buf, sizeof(buf), "P%s->", p->n->name);
 		if (strstr((char *)tmp->cn, buf))
 		{	printf("spin: in proctype %s, ref to object in proctype %s\n",
 				X_lst->n->name, p->n->name);
@@ -1211,7 +1210,7 @@ prep_inline(Symbol *s, Lextok *nms)
 	if (!s)	/* C_Code fragment */
 	{	s = (Symbol *) emalloc(sizeof(Symbol));
 		s->name = (char *) emalloc(strlen("c_code")+26);
-		sprintf(s->name, "c_code%d", c_code++);
+		snprintf(s->name, strlen("c_code")+26, "c_code%d", c_code++);
 		s->context = context;
 		s->type = CODE_FRAG;
 	} else
@@ -1244,13 +1243,13 @@ bad:			 fatal("bad inline: %s", s->name);
 	dln = lineno;
 	if (s->type == CODE_FRAG)
 	{	if (verbose&32)
-		{	sprintf(Buf1, "\t/* line %d %s */\n\t\t",
+		{	snprintf(Buf1, SOMETHINGBIG, "\t/* line %d %s */\n\t\t",
 				lineno, Fname->name);
 		} else
-		{	strcpy(Buf1, "");
+		{	Buf1[0] = '\0';
 		}
 	} else
-	{	sprintf(Buf1, "\n#line %d \"%s\"\n{", lineno, Fname->name);
+	{	snprintf(Buf1, SOMETHINGBIG, "\n#line %d \"%s\"\n{", lineno, Fname->name);
 	}
 	p += strlen(Buf1);
 	firstchar = 1;
@@ -1334,13 +1333,18 @@ static void
 set_cur_scope(void)
 {	int i;
 	char tmpbuf[256];
+	size_t len;
 
-	strcpy(CurScope, "_");
+	CurScope[0] = '_';
+	CurScope[1] = '\0';
 
 	if (context)
 	for (i = 0; i < scope_level; i++)
-	{	sprintf(tmpbuf, "%d_", scope_seq[i]);
-		strcat(CurScope, tmpbuf);
+	{	snprintf(tmpbuf, sizeof(tmpbuf), "%d_", scope_seq[i]);
+		len = strlen(CurScope);
+		if (len + strlen(tmpbuf) < MAXSCOPESZ)
+		{	strncat(CurScope, tmpbuf, MAXSCOPESZ - len - 1);
+		}
 	}
 }
 
@@ -1650,17 +1654,17 @@ again:
 					for (i = a; i <= b; i++)
 					{	char buf[256];
 						push_back(":: ");
-						sprintf(buf, "%s = %d ",
+						snprintf(buf, sizeof(buf), "%s = %d ",
 							name, i);
 						push_back(buf);
 					}
 					push_back("fi ");
 				} else
 				{	char buf[256];
-					sprintf(buf, "%s = %d; do ",
+					snprintf(buf, sizeof(buf), "%s = %d; do ",
 						name, a);
 					push_back(buf);
-					sprintf(buf, ":: (%s < %d) -> %s++ ",
+					snprintf(buf, sizeof(buf), ":: (%s < %d) -> %s++ ",
 						name, b, name);
 					push_back(buf);
 					push_back(":: break od; ");

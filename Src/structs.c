@@ -382,7 +382,7 @@ validref(Lextok *p, Lextok *c)
 		if (strcmp(tl->sym->name, c->sym->name) == 0)
 			return;
 
-	sprintf(lbuf, "no field '%s' defined in structure '%s'\n",
+	snprintf(lbuf, sizeof(lbuf), "no field '%s' defined in structure '%s'\n",
 		c->sym->name, p->sym->name);
 	non_fatal(lbuf, (char *) 0);
 }
@@ -392,20 +392,25 @@ struct_name(Lextok *n, Symbol *v, int xinit, char *buf)
 {	Symbol *tl;
 	Lextok *tmp;
 	char lbuf[512];
+	size_t len;
 
 	if (!n || !(tl = do_same(n, v, xinit)))
 		return;
 	tmp = n->rgt->lft;
 	if (tmp->sym->type == STRUCT)
-	{	strcat(buf, ".");
+	{	len = strlen(buf);
+		if (len < 511)
+		{	buf[len] = '.';
+			buf[len+1] = '\0';
+		}
 		struct_name(tmp, tl, 0, buf);
 		return;
 	}
-	sprintf(lbuf, ".%s", tl->name);
-	strcat(buf, lbuf);
+	snprintf(lbuf, sizeof(lbuf), ".%s", tl->name);
+	strncat(buf, lbuf, 511 - strlen(buf));
 	if (tmp->sym->nel > 1 || tmp->sym->isarray == 1)
-	{	sprintf(lbuf, "[%d]", eval(tmp->lft));
-		strcat(buf, lbuf);
+	{	snprintf(lbuf, sizeof(lbuf), "[%d]", eval(tmp->lft));
+		strncat(buf, lbuf, 511 - strlen(buf));
 	}
 }
 
@@ -458,22 +463,24 @@ c_struct(FILE *fd, char *ipref, Symbol *z)
 {	Lextok *fp, *tl;
 	char pref[512], eprefix[300];
 	int ix;
+	size_t len;
 
 	ini_struct(z);
 
 	for (ix = 0; ix < z->nel; ix++)
 	for (fp = z->Sval[ix]; fp; fp = fp->rgt)
 	for (tl = fp->lft; tl; tl = tl->rgt)
-	{	strcpy(eprefix, ipref);
+	{	snprintf(eprefix, sizeof(eprefix), "%s", ipref);
 		if (z->nel > 1 || z->isarray == 1)
 		{	/* insert index before last '.' */
-			eprefix[strlen(eprefix)-1] = '\0';
-			sprintf(pref, "[ %d ].", ix);
-			strcat(eprefix, pref);
+			len = strlen(eprefix);
+			if (len > 0) eprefix[len-1] = '\0';
+			snprintf(pref, sizeof(pref), "[ %d ].", ix);
+			strncat(eprefix, pref, sizeof(eprefix) - strlen(eprefix) - 1);
 		}
 		if (tl->sym->type == STRUCT)
-		{	strcat(eprefix, tl->sym->name);
-			strcat(eprefix, ".");
+		{	strncat(eprefix, tl->sym->name, sizeof(eprefix) - strlen(eprefix) - 1);
+			strncat(eprefix, ".", sizeof(eprefix) - strlen(eprefix) - 1);
 			c_struct(fd, eprefix, tl->sym);
 		} else
 			c_var(fd, eprefix, tl->sym);
@@ -490,17 +497,15 @@ dump_struct(Symbol *z, char *prefix, RunList *r)
 
 	for (ix = 0; ix < z->nel; ix++)
 	{	if (z->nel > 1 || z->isarray == 1)
-			sprintf(eprefix, "%s[%d]", prefix, ix);
+			snprintf(eprefix, sizeof(eprefix), "%s[%d]", prefix, ix);
 		else
-			strcpy(eprefix, prefix);
-		
+			snprintf(eprefix, sizeof(eprefix), "%s", prefix);
+
 		for (fp = z->Sval[ix]; fp; fp = fp->rgt)
 		for (tl = fp->lft; tl; tl = tl->rgt)
 		{	if (tl->sym->type == STRUCT)
 			{	char pref[300];
-				strcpy(pref, eprefix);
-				strcat(pref, ".");
-				strcat(pref, tl->sym->name);
+				snprintf(pref, sizeof(pref), "%s.%s", eprefix, tl->sym->name);
 				dump_struct(tl->sym, pref, r);
 			} else
 			for (jx = 0; jx < tl->sym->nel; jx++)
