@@ -137,7 +137,7 @@ tl_main(int argc, char *argv[])
 				}
 				size_t len = strlen(argv[1]);
                 		uform = tl_emalloc(len + 1);
-				strcpy(uform, argv[1]);
+				snprintf(uform, len + 1, "%s", argv[1]);
 				hasuform = (int) len;
 				break;
 		case 'v':	tl_verbose++;
@@ -145,8 +145,10 @@ tl_main(int argc, char *argv[])
 		case 'n':	tl_terse = 1;
 				break;
 		case 'c':	argc--; argv++;
-				claim_name = (char *) emalloc(strlen(argv[1])+1);
-				strcpy(claim_name, argv[1]);
+				{	size_t clen = strlen(argv[1])+1;
+					claim_name = (char *) emalloc(clen);
+					snprintf(claim_name, clen, "%s", argv[1]);
+				}
 				break;
 		default :	printf("spin -f: saw '-%c'\n", argv[1][1]);
 				goto nogood;

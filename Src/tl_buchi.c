@@ -105,7 +105,7 @@ findstate(char *nm)
 					break;
 			if (i >= 64)
 				Fatal("name too long %s", nm);
-			sprintf(altnm, "accept%s", &nm[i]);
+			snprintf(altnm, sizeof(altnm), "accept%s", &nm[i]);
 			return findstate(altnm);
 		}
 	/*	Fatal("buchi: no state %s", nm); */
@@ -478,7 +478,7 @@ buckyballs(void)
 					if (!strncmp(c->name->name, "accept", 6)
 					&&  Max_Red == 0)
 					{	char buf[64];
-						sprintf(buf, "T0%s", &(c->name->name[6]));
+						snprintf(buf, sizeof(buf), "T0%s", &(c->name->name[6]));
 						retarget(buf, d->name->name);
 					}
 					break;
@@ -522,7 +522,7 @@ mergestates(int v)
 					if (!strncmp(a->name->name, "accept", 6)
 					&&  Max_Red == 0)
 					{	char buf[64];
-						sprintf(buf, "T0%s", &(a->name->name[6]));
+						snprintf(buf, sizeof(buf), "T0%s", &(a->name->name[6]));
 						retarget(buf, b->name->name);
 					}
 					break;

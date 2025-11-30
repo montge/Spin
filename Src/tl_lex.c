@@ -51,7 +51,7 @@ tl_follow(int tok, int ifyes, int ifno)
 		return ifyes;
 	tl_UnGetchar();
 	tl_yychar = c;
-	sprintf(buf, "expected '%c'", tok);
+	snprintf(buf, sizeof(buf), "expected '%c'", tok);
 	tl_yyerror(buf);	/* no return from here */
 	return ifno;
 }
@@ -249,8 +249,10 @@ tl_lookup(char *s)
 			return sp;
 
 	sp = (Symbol *) tl_emalloc(sizeof(Symbol));
-	sp->name = (char *) tl_emalloc((int) strlen(s) + 1);
-	strcpy(sp->name, s);
+	{	size_t slen = strlen(s) + 1;
+		sp->name = (char *) tl_emalloc((int) slen);
+		snprintf(sp->name, slen, "%s", s);
+	}
 	sp->next = symtab[h];
 	symtab[h] = sp;
 

@@ -63,7 +63,7 @@ Mopup(FILE *fd)
 				fprintf(fd, "S_%.3d_0:	/* break-dest */\n",
 					OkBreak);
 			} else {
-				sprintf(buf, "S_%.3d_0", Jumpto[i]);
+				snprintf(buf, sizeof(buf), "S_%.3d_0", Jumpto[i]);
 				non_fatal("goto %s breaks from d_step seq", buf);
 	}	}	}
 	for (j = 0; j < Tj; j++)
@@ -288,7 +288,7 @@ putcode(FILE *fd, Sequence *s, Element *nxt, int justguards, int ln, int seqno)
 	if (justguards) return 0;
 
 	fprintf(fd, "\n\t\tsv_save();\n\t\t");
-	sprintf(buf, "Uerror(\"block in d_step seq, line %d\")", ln);
+	snprintf(buf, sizeof(buf), "Uerror(\"block in d_step seq, line %d\")", ln);
 	NextLab[0] = buf;
 	putCode(fd, s->frst, s->extent, nxt, isg);
 
@@ -396,7 +396,7 @@ putCode(FILE *fd, Element *f, Element *last, Element *next, int isguard)
 			}
 		} else
 		{	for (h = e->sub, i=1; h; h = h->nxt, i++)
-			{	sprintf(NextOpt, "goto S_%.3d_%d",
+			{	snprintf(NextOpt, sizeof(NextOpt), "goto S_%.3d_%d",
 					e->Seqno, i);
 				NextLab[++Level] = NextOpt;
 				N = (e->n && e->n->ntyp == DO) ? e : e->nxt;

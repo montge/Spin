@@ -399,10 +399,11 @@ check_special(int *nrs)
 				{	if (j == 1)	/* accept state */
 					{	char buf[32];
 is_accepting:					if (strchr(p->n->name, ':'))
-						{	sprintf(buf, "N%d", i);
+						{	snprintf(buf, sizeof(buf), "N%d", i);
 						} else
-						{	assert(strlen(p->n->name) < sizeof(buf));
-							strcpy(buf, p->n->name);
+						{	if (strlen(p->n->name) >= sizeof(buf))
+								fatal("name too long: %s", p->n->name);
+							snprintf(buf, sizeof(buf), "%s", p->n->name);
 						}
 						if (unfolding == 0 && i == 0)
 						{	if (!not_printing)

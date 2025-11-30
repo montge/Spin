@@ -254,7 +254,7 @@ genunio(void)
 	{	fprintf(fd_tc, "\tcase %d:\n", q->qid);
 
 		if (has_sorted)
-		{	sprintf(buf1, "((Q%d *)z)->contents", q->qid);
+		{	snprintf(buf1, sizeof(buf1), "((Q%d *)z)->contents", q->qid);
 			fprintf(fd_tc, "#ifdef HAS_SORTED\n");
 			fprintf(fd_tc, "\t\tj = trpt->ipt;\n");	/* ipt was bup.oval */
 			fprintf(fd_tc, "#endif\n");
@@ -268,7 +268,7 @@ genunio(void)
 			fprintf(fd_tc, "\t\tj = ((Q0 *)z)->Qlen;\n");
 		}
 
-		sprintf(buf1, "((Q%d *)z)->contents[j].fld", q->qid);
+		snprintf(buf1, sizeof(buf1), "((Q%d *)z)->contents[j].fld", q->qid);
 		for (i = 0; i < q->nflds; i++)
 			fprintf(fd_tc, "\t\t%s%d = 0;\n", buf1, i);
 		if (q->nslots==0)
@@ -283,7 +283,7 @@ genunio(void)
 	}
 	ntimes(fd_tc, 0, 1, R14_);
 	for (q = qtab; q; q = q->nxt)
-	{	sprintf(buf1, "((Q%d *)z)->contents", q->qid);
+	{	snprintf(buf1, sizeof(buf1), "((Q%d *)z)->contents", q->qid);
 		fprintf(fd_tc, "	case %d:\n", q->qid);
 		if (q->nslots == 0)
 			fprintf(fd_tc, "\t\tif (strt) boq = from+1;\n");
@@ -300,7 +300,7 @@ genunio(void)
 			}
 			fprintf(fd_tc, "}\n\t\t}\n");
 		}
-		strcat(buf1, "[slot].fld");
+		strncat(buf1, "[slot].fld", sizeof(buf1) - strlen(buf1) - 1);
 		fprintf(fd_tc, "\t\tif (strt) {\n");
 		for (i = 0; i < q->nflds; i++)
 			fprintf(fd_tc, "\t\t\t%s%d = 0;\n", buf1, i);

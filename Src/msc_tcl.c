@@ -176,10 +176,11 @@ spitbox(int ix, int y, char *s)
 	{	color = "pink";
 		if (sscanf(s, "%d:%250s", &a, d) == 2
 		&&  a >= 0 && a < TotSteps)
-		{	if (!I[a]  || strlen(I[a]) <= strlen(s))
-			{	I[a] = (char *) emalloc((int) strlen(s)+1);
+		{	size_t slen = strlen(s)+1;
+			if (!I[a]  || strlen(I[a]) <= strlen(s))
+			{	I[a] = (char *) emalloc((int) slen);
 			}
-			strcpy(I[a], s);
+			snprintf(I[a], slen, "%s", s);
 	}	}
 
 	colbox(x, y, (int) bw, 4, color);
@@ -303,15 +304,15 @@ void
 putprelude(void)
 {	char snap[256]; FILE *fd;
 
-	sprintf(snap, "%s.tcl", oFname?oFname->name:"msc");
+	snprintf(snap, sizeof(snap), "%s.tcl", oFname?oFname->name:"msc");
 	if (!(pfd = fopen(snap, MFLAGS)))
 	{	fatal("cannot create file '%s'", snap);
 	}
 	if (s_trail)
 	{	if (ntrail)
-		sprintf(snap, "%s%d.trail", oFname?oFname->name:"msc", ntrail);
+		snprintf(snap, sizeof(snap), "%s%d.trail", oFname?oFname->name:"msc", ntrail);
 		else
-		sprintf(snap, "%s.trail", oFname?oFname->name:"msc");
+		snprintf(snap, sizeof(snap), "%s.trail", oFname?oFname->name:"msc");
 		if (!(fd = fopen(snap, "r")))
 		{	snap[strlen(snap)-2] = '\0';
 			if (!(fd = fopen(snap, "r")))
@@ -346,9 +347,10 @@ putarrow(int from, int to)
 
 void
 pstext(int x, char *s)
-{	char *tmp = emalloc((int) strlen(s)+1);
+{	size_t slen = strlen(s)+1;
+	char *tmp = emalloc((int) slen);
 
-	strcpy(tmp, s);
+	snprintf(tmp, slen, "%s", s);
 	if (depth == 0)
 	{	I[x] = tmp;
 	} else

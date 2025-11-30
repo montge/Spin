@@ -816,7 +816,7 @@ pushbreak(void)
 	Symbol *l;
 	char buf[64];
 
-	sprintf(buf, ":b%d", break_id++);
+	snprintf(buf, sizeof(buf), ":b%d", break_id++);
 	l = lookup(buf);
 	r->l = l;
 	r->nxt = breakstack;
@@ -997,7 +997,7 @@ for_index(Lextok *a3, Lextok *a5)
 		z1 = nn(ZN, CONST, ZN, ZN); z1->val = 0;
 		z2 = nn(a5, LEN, a5, ZN);
 
-		sprintf(tmp_nm, "_f0r_t3mp%s", CurScope); /* make sure it's unique */
+		snprintf(tmp_nm, sizeof(tmp_nm), "_f0r_t3mp%s", CurScope); /* make sure it's unique */
 		tmp_cnt = lookup(tmp_nm);
 		if (z0->val > 255)			/* check nr of slots, i.e. max length */
 		{	tmp_cnt->type = SHORT;	/* should be rare */
